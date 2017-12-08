@@ -1,5 +1,6 @@
 import sys
-import re
+import os
+import datetime
 import argparse
 import openpyxl as xl
 
@@ -10,6 +11,7 @@ def parseArguments():
     parser.add_argument("--baseColumn", help="[Opt] Name of column that others are to be compared against. Warnings are flagged for all columns that do not match the baseColumn. Defaults to leftmost column in columnList.", type=str, default=None)
     parser.add_argument("--ignoreOrder", help="[Opt] If passed, the order in which output value tags appear will not be considered when comparing cells against each other. This is useful if the order of the output value tags is different between columns because of differences in word orders between the languages involved.", action="store_true", default=False)
     parser.add_argument("-v", "--verbose",  help="[Opt] If passed, output will be printed to the screen pointing out which rows of the file have issues.", action="store_true", default = False)
+    parser.add_argument("--outputFolder", help = "[Opt] Folder in which any output files should be passed. Defaults to 'output' folder relative to folder from which the script is called. Can be relative or absolute path.", type=str, default = "output")
     return parser.parse_args()
 
 def convertCellToOutputValueList(cell):
@@ -189,13 +191,14 @@ def main(argv):
 
     ## Save workbook and print summary
     if len(wsMismatchDict) > 0:
-        outputFileName = "results.xlsx"
+        tsString = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        fileBasename = os.path.splitext(os.path.basename(args.file))[0]
+        outputFolder = args.outputFolder
+        outputFileName = os.path.join(outputFolder,"%s_%s_Output.xlsx" % (fileBasename, tsString))
         wbOut.save(outputFileName)
         print "There were issues with the following worksheets, see %s for details:" % (outputFileName,)
         for key in wsMismatchDict.keys():
             print "%s : %s row%s mismatched" % (key, wsMismatchDict[key], "" if wsMismatchDict[key]==1 else "s")
-
-
 
 if __name__ == "__main__":
     main(sys.argv[1:])
