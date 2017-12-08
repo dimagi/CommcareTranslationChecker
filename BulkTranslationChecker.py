@@ -8,6 +8,8 @@ def parseArguments():
     parser.add_argument("--file", help="Location of Translation file to check", type=str)
     parser.add_argument("--columnList", help="[Opt] Comma-separated list of column names to check. By default, all columns that start with 'default_' will be checked.", type=str, default=None)
     parser.add_argument("--baseColumn", help="[Opt] Name of column that others are to be compared against. Warnings are flagged for all columns that do not match the baseColumn. Defaults to leftmost column in columnList.", type=str, default=None)
+    parser.add_argument("--ignoreOrder", help="[Opt] If passed, the order in which output value tags appear will not be considered when comparing cells against each other. This is useful if the order of the output value tags is different between columns because of differences in word orders between the languages involved.", action="store_true", default=False)
+    parser.add_argument("-v", "--verbose",  help="[Opt] If passed, output will be printed to the screen pointing out which rows of the file have issues.", action="store_true", default = False)
     return parser.parse_args()
 
 def convertCellToOutputValueList(cell):
@@ -35,7 +37,7 @@ def convertCellToOutputValueList(cell):
 
     return outputList
 
-def checkRowForMismatch(row, columnDict, baseColumnIdx = None):
+def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = False):
     '''
     Check all of the given columns in a row provided for any mismatch in the columns' OutputValueList 
 
@@ -43,6 +45,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None):
     row(list): list of openyxl.cell.cell.Cell objects representing a single row in an Excel sheet 
     columnDict(dict): dictionary mapping column index to column name, representing every column to be checked against the baseColumn 
     baseColumnIdx(int [opt]): Index of the column to be considered "correct." Defaults to lowest-indexed column in columnDict.
+    ignoreOrder(bool [opt]): If True, the order in which output values appear will be ignored for purposes of comparing cells. Otherwise, the order will matter. Defaults to False.
 
     Output:
     Tuple consisting of a single-element dictionary mapping the baseColumn's index to its outputValueList, and a dictionary mapping the column indexes of mismatched cells to their OutputValueList.
@@ -56,11 +59,15 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None):
     if baseColumnIdx is None:
         baseColumnIdx = sorted(columnDict.keys())[0]
     baseOutputValueList = convertCellToOutputValueList(row[baseColumnIdx])
+    if ignoreOrder:
+        baseOutputValueList = sorted(baseOutputValueList)
     baseColumnDict = {baseColumnIdx : baseOutputValueList}
 
     for colIdx in columnDict.keys():
         try:
             curOutputValueList = convertCellToOutputValueList(row[colIdx])
+            if ignoreOrder:
+                curOutputValueList = sorted(curOutputValueList)
             if colIdx != baseColumnIdx and baseOutputValueList != curOutputValueList:
                 mismatchDict[colIdx] = curOutputValueList
         except AttributeError, e:
@@ -100,7 +107,7 @@ def main(argv):
                     if defaultColumnDict[colIdx] == args.baseColumn:
                         baseColumnIdx = colIdx 
 
-            rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx)
+            rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx, args.ignoreOrder)
             if len(rowCheckResults[1]) > 0:
                 baseColumnName = defaultColumnDict[rowCheckResults[0].keys()[0]]
                 baseColumnOutputValueList = rowCheckResults[0][rowCheckResults[0].keys()[0]]
