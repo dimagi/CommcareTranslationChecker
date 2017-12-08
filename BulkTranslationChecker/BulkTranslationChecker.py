@@ -200,5 +200,8 @@ def main(argv):
         for key in wsMismatchDict.keys():
             print "%s : %s row%s mismatched" % (key, wsMismatchDict[key], "" if wsMismatchDict[key]==1 else "s")
 
-if __name__ == "__main__":
+def entryPoint():
     main(sys.argv[1:])
+
+if __name__ == "__main__":
+    entryPoint()

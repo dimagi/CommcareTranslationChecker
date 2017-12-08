@@ -1,2 +1,7 @@
 venv/
 output/
+BulkTranslationChecker/output/
+dist/
+build/
+*.egg-info
+BulkTranslationChecker.pyc
