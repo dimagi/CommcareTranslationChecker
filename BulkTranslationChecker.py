@@ -80,7 +80,6 @@ def main(argv):
     ## Iterate through WorkSheets
     testCount = 0
     for ws in wb:
-        print ws.title
 
         ## Dictionary mapping column index to column name
         defaultColumnDict = {}
@@ -96,7 +95,7 @@ def main(argv):
                 baseColumnName = defaultColumnDict[rowCheckResults[0].keys()[0]]
                 baseColumnOutputValueList = rowCheckResults[0][rowCheckResults[0].keys()[0]]
                 mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
-                print "Warning at row %s of sheet %s: the output values in %s do not match %s" % (idx,ws.title, mismatchColumnNames, baseColumnName)
+                print "WARNING %s row %s: the output values in %s do not match %s" % (ws.title,idx, mismatchColumnNames, baseColumnName)
                 # print "%s: %s \n%s: %s" % (curOutputValueList, curCellValue.encode('utf8'), realOutputValueList, realCellValue.encode('utf8'))
 
 
