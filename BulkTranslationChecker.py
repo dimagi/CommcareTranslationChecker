@@ -6,6 +6,8 @@ import openpyxl
 def parseArguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--file", help="Location of Translation file to check", type=str)
+    parser.add_argument("--columnList", help="[Opt] Comma-separated list of column names to check. By default, all columns that start with 'default_' will be checked.", type=str, default=None)
+    parser.add_argument("--baseColumn", help="[Opt] Name of column that others are to be compared against. Warnings are flagged for all columns that do not match the baseColumn. Defaults to leftmost column in columnList.", type=str, default=None)
     return parser.parse_args()
 
 def convertCellToOutputValueList(cell):
@@ -85,11 +87,20 @@ def main(argv):
 
         ## Find all columns of format "default_[CODE]"
         for idx, cell in enumerate(ws.rows[0]):
-            if cell.value[:8] == "default_":
+            if args.columnList:
+                if cell.value in args.columnList:
+                    defaultColumnDict[idx] = cell.value
+            elif cell.value[:8] == "default_":
                 defaultColumnDict[idx] = cell.value
 
         for idx, row in enumerate(ws.rows[1:]):
-            rowCheckResults = checkRowForMismatch(row, defaultColumnDict)
+            baseColumnIdx = None
+            if args.baseColumn:
+                for colIdx in defaultColumnDict.keys():
+                    if defaultColumnDict[colIdx] == args.baseColumn:
+                        baseColumnIdx = colIdx 
+
+            rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx)
             if len(rowCheckResults[1]) > 0:
                 baseColumnName = defaultColumnDict[rowCheckResults[0].keys()[0]]
                 baseColumnOutputValueList = rowCheckResults[0][rowCheckResults[0].keys()[0]]
