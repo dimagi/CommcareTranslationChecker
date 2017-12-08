@@ -33,6 +33,41 @@ def convertCellToOutputValueList(cell):
 
     return outputList
 
+def checkRowForMismatch(row, columnDict, baseColumnName = None):
+    '''
+    Check all of the given columns in a row provided for any mismatch in the columns' OutputValueList 
+
+    Input:
+    row(list): list of openyxl.cell.cell.Cell objects representing a single row in an Excel sheet 
+    columnDict(dict): dictionary mapping column index to column name, representing every column to be checked against the baseColumn 
+    baseColumnName(str [opt]): CURRENTLY UNIMPLEMENTED. Name of the column to be considered "correct." Defaults to first column in columnDict.
+
+    Output:
+    Tuple consisting of a single-element dictionary mapping the baseColumn's index to its outputValueList, and a dictionary mapping the column indexes of mismatched cells to their OutputValueList.
+    '''
+    mismatchDict = {}
+    baseColumnDict=  {}
+
+    realOutputValueList = None
+
+    for colIdx in columnDict.keys():
+        try:
+            curOutputValueList = convertCellToOutputValueList(row[colIdx])
+            curCellValue = row[colIdx].value
+            if realOutputValueList is None:
+                realOutputValueList = curOutputValueList
+                realCellValue = curCellValue
+                baseColumnDict = {colIdx : realOutputValueList}
+            elif realOutputValueList != curOutputValueList:
+                mismatchDict[colIdx] = curOutputValueList
+                # print "Warning at row %s of sheet %s: output value mismatch" % (idx,ws.title)
+                # print "%s: %s \n%s: %s" % (curOutputValueList, curCellValue.encode('utf8'), realOutputValueList, realCellValue.encode('utf8'))
+        except AttributeError, e:
+            pass
+
+    return (baseColumnDict, mismatchDict)
+
+
 def main(argv):
     args = parseArguments()
     try:
@@ -56,25 +91,13 @@ def main(argv):
                 defaultColumnDict[idx] = cell.value
 
         for idx, row in enumerate(ws.rows[1:]):
-            ## Right now, just compare counts of output_value string
-            realOutputValueList = None
-
-            for colIdx in defaultColumnDict.keys():
-                testCount += 1
-                try:
-                    curOutputValueList = convertCellToOutputValueList(row[colIdx])
-                    curCellValue = row[colIdx].value
-                    # if testCount%100 == 0:
-                    #     print curOutputValueList, realOutputValueList
-                    #     print curCellValue.encode('utf8'), realCellValue.encode('utf8')
-                    if realOutputValueList is None:
-                        realOutputValueList = curOutputValueList
-                        realCellValue = curCellValue
-                    elif realOutputValueList != curOutputValueList:
-                        print "Warning at row %s of sheet %s: output value mismatch" % (idx,ws.title)
-                        print "%s: %s \n%s: %s" % (curOutputValueList, curCellValue.encode('utf8'), realOutputValueList, realCellValue.encode('utf8'))
-                except AttributeError, e:
-                    pass
+            rowCheckResults = checkRowForMismatch(row, defaultColumnDict)
+            if len(rowCheckResults[1]) > 0:
+                baseColumnName = defaultColumnDict[rowCheckResults[0].keys()[0]]
+                baseColumnOutputValueList = rowCheckResults[0][rowCheckResults[0].keys()[0]]
+                mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
+                print "Warning at row %s of sheet %s: the output values in %s do not match %s" % (idx,ws.title, mismatchColumnNames, baseColumnName)
+                # print "%s: %s \n%s: %s" % (curOutputValueList, curCellValue.encode('utf8'), realOutputValueList, realCellValue.encode('utf8'))
 
 
 if __name__ == "__main__":
