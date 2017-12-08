@@ -125,7 +125,8 @@ def main(argv):
     args = parseArguments()
     try:
         wb = xl.load_workbook(args.file)
-        print "Workbook Loaded"
+        if args.verbose:
+            print "Workbook Loaded"
     except xl.exceptions.InvalidFileException, e:
         print "Invalid File!"
         exit(-1)
@@ -133,6 +134,9 @@ def main(argv):
     ## Open new Workbook
     wbOut = xl.Workbook()
     wbOut.remove_sheet(wbOut.active)
+
+    ## Summary lists
+    wsMismatchDict = {}
 
     ## Iterate through WorkSheets
     for ws in wb:
@@ -174,14 +178,23 @@ def main(argv):
             ## Check row for mismatch and print results
             rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx, args.ignoreOrder, wsOut, mismatchFlagIdx)
             if len(rowCheckResults[1]) > 0:
-                baseColumnName = defaultColumnDict[rowCheckResults[0].keys()[0]]
-                baseColumnOutputValueList = rowCheckResults[0][rowCheckResults[0].keys()[0]]
-                mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
-                print "WARNING %s row %s: the output values in %s do not match %s" % (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName)
-                # print "%s: %s \n%s: %s" % (curOutputValueList, curCellValue.encode('utf8'), baseOutputValueList, baseCellValue.encode('utf8'))
+                if ws.title not in wsMismatchDict.keys():
+                    wsMismatchDict[ws.title] = 1
+                else:
+                    wsMismatchDict[ws.title] += 1
+                if args.verbose:
+                    baseColumnName = defaultColumnDict[rowCheckResults[0].keys()[0]]
+                    mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
+                    print "WARNING %s row %s: the output values in %s do not match %s" % (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName)
 
-    ## Save workbook
-    wbOut.save("results.xlsx")
+    ## Save workbook and print summary
+    if len(wsMismatchDict) > 0:
+        outputFileName = "results.xlsx"
+        wbOut.save(outputFileName)
+        print "There were issues with the following worksheets, see %s for details:" % (outputFileName,)
+        for key in wsMismatchDict.keys():
+            print "%s : %s row%s mismatched" % (key, wsMismatchDict[key], "" if wsMismatchDict[key]==1 else "s")
+
 
 
 if __name__ == "__main__":
