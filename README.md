@@ -1,1 +1,1 @@
-# BulkTranslationChecker
+# CommcareTranslationChecker
