@@ -3,7 +3,7 @@ CommcareTranslationChecker
 
 https://github.com/dimagi/CommcareTranslationChecker
 
-A command-line tool (and Python library) to check multiple columns of a [Bulk Translation File](https://confluence.dimagi.com/display/commcarepublic/Form+Bulk+Translation) against each other, to ensure that output value tags are being used consistently between columns.
+A command-line tool to check multiple columns of a [Bulk Translation File](https://confluence.dimagi.com/display/commcarepublic/Form+Bulk+Translation) against each other, to ensure that output value tags are being used consistently between columns.
 
 Installation
 --------------------------
@@ -73,17 +73,22 @@ Ensure that the archive has the correct version number (matching the tag name).
 $ python setup.py sdist
 ```
 
-3\. Upload to pypi
+3\. Create the wheel
+```
+$ python setup.py bdist_wheel --universal
+```
+
+4\. Upload to pypi
 
 ```
 $ pip install twine
-$ twine upload dist/CommcareTranslationChecker-X.YY.0.tar.gz
+$ twine upload dist/CommcareTranslationChecker-X.YY.0*
 ```
 
-4\. Verify upload
+5\. Verify upload
 
 https://pypi.python.org/pypi/CommcareTranslationChecker
 
-5\. Create a release on github
+6\. Create a release on github
 
 https://github.com/dimagi/CommcareTranslationChecker/releases
