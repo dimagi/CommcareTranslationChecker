@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import os
 import datetime
@@ -35,7 +36,7 @@ def convertCellToOutputValueList(cell):
         while cell.value[currentIndex:].find(openTag) != -1:
             currentIndex += cell.value[currentIndex:].find(openTag) + len(openTag)
             outputList.append(cell.value[currentIndex:cell.value[currentIndex:].find(closeTag) + currentIndex])
-    except TypeError, e:
+    except TypeError as e:
         return []
 
     return outputList
@@ -93,15 +94,18 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
 
     mismatchFillStyle = xl.styles.Style(fill = xl.styles.PatternFill(fgColor = xl.styles.colors.Color(xl.styles.colors.RED), fill_type = "solid"), alignment = xl.styles.Alignment(wrap_text = True))
 
+    ## Get columnDictKeyList for Python3
+    columnDictKeyList = list(columnDict.keys())
+
     ## Build baseColumnDict
     if baseColumnIdx is None:
-        baseColumnIdx = sorted(columnDict.keys())[0]
+        baseColumnIdx = sorted(columnDictKeyList)[0]
     baseOutputValueList = convertCellToOutputValueList(row[baseColumnIdx])
     if ignoreOrder:
         baseOutputValueList = sorted(baseOutputValueList)
     baseColumnDict = {baseColumnIdx : baseOutputValueList}
 
-    for colIdx in columnDict.keys():
+    for colIdx in columnDictKeyList:
         try:
             curOutputValueList = convertCellToOutputValueList(row[colIdx])
             if ignoreOrder:
@@ -111,7 +115,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                 if wsOut:
                     cellOut = getOutputCell(row[colIdx], wsOut)
                     cellOut.style = mismatchFillStyle
-        except AttributeError, e:
+        except AttributeError as e:
             pass
 
     mismatchCell =wsOut.cell(row = getOutputCell(row[0], wsOut).row, column = 1).offset(column = mismatchFlagIdx)
@@ -129,9 +133,9 @@ def main(argv):
     try:
         wb = xl.load_workbook(args.file)
         if args.verbose:
-            print "Workbook Loaded"
-    except xl.exceptions.InvalidFileException, e:
-        print "Invalid File!"
+            print("Workbook Loaded")
+    except xl.exceptions.InvalidFileException as e:
+        print("Invalid File!")
         exit(-1)
 
     ## Open new Workbook
@@ -186,9 +190,9 @@ def main(argv):
                 else:
                     wsMismatchDict[ws.title] += 1
                 if args.verbose:
-                    baseColumnName = defaultColumnDict[rowCheckResults[0].keys()[0]]
+                    baseColumnName = defaultColumnDict[list(rowCheckResults[0].keys())[0]]
                     mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
-                    print "WARNING %s row %s: the output values in %s do not match %s" % (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName)
+                    print("WARNING %s row %s: the output values in %s do not match %s" % (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName))
 
     ## Save workbook and print summary
     if len(wsMismatchDict) > 0:
@@ -201,16 +205,16 @@ def main(argv):
             if not os.path.exists(os.path.dirname(outputFileName)):
                 try:
                     os.makedirs(os.path.dirname(outputFileName),)
-                    print "Output directory did not exist, created %s" % (os.path.dirname(outputFileName),)
+                    print("Output directory did not exist, created %s" % (os.path.dirname(outputFileName),))
                 except OSError as e:
                     if e.errorno != e.EEXIST:
                         raise e
             wbOut.save(outputFileName)
-            print "There were issues with the following worksheets, see %s for details:" % (outputFileName,)
+            print("There were issues with the following worksheets, see %s for details:" % (outputFileName,))
         else:
-            print "There were issues with the following worksheets:"
+            print("There were issues with the following worksheets:")
         for key in wsMismatchDict.keys():
-            print "%s : %s row%s mismatched" % (key, wsMismatchDict[key], "" if wsMismatchDict[key]==1 else "s")
+            print("%s : %s row%s mismatched" % (key, wsMismatchDict[key], "" if wsMismatchDict[key]==1 else "s"))
 
 def entryPoint():
     main(sys.argv[1:])
