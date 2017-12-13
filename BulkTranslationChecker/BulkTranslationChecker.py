@@ -7,11 +7,12 @@ import openpyxl as xl
 def parseArguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--file", help="Location of Translation file to check", type=str)
-    parser.add_argument("--columnList", help="[Opt] Comma-separated list of column names to check. By default, all columns that start with 'default_' will be checked.", type=str, default=None)
-    parser.add_argument("--baseColumn", help="[Opt] Name of column that others are to be compared against. Warnings are flagged for all columns that do not match the baseColumn. Defaults to leftmost column in columnList.", type=str, default=None)
-    parser.add_argument("--ignoreOrder", help="[Opt] If passed, the order in which output value tags appear will not be considered when comparing cells against each other. This is useful if the order of the output value tags is different between columns because of differences in word orders between the languages involved.", action="store_true", default=False)
+    parser.add_argument("--columns", help="[Opt] Comma-separated list of column names to check. By default, all columns that start with 'default_' will be checked.", type=str, default=None)
+    parser.add_argument("--base-column", help="[Opt] Name of column that others are to be compared against. Warnings are flagged for all columns that do not match the base-column. Defaults to leftmost column in columns.", type=str, default=None, dest='baseColumn')
+    parser.add_argument("--ignore-order", help="[Opt] If passed, the order in which output value tags appear will not be considered when comparing cells against each other. This is useful if the order of the output value tags is different between columns because of differences in word orders between the languages involved.", action="store_true", default=False, dest='ignoreOrder')
     parser.add_argument("-v", "--verbose",  help="[Opt] If passed, output will be printed to the screen pointing out which rows of the file have issues.", action="store_true", default = False)
-    parser.add_argument("--outputFolder", help = "[Opt] Folder in which any output files should be passed. Defaults to 'output' folder relative to folder from which the script is called. Can be relative or absolute path.", type=str, default = "output")
+    parser.add_argument("--output-folder", help = "[Opt] Folder in which any output files should be passed. Defaults to 'bulkTranslationChecker_Output' folder relative to folder from which the script is called. Can be relative or absolute path.", type=str, default = "bulkTranslationChecker_Output", dest='outputFolder')
+    parser.add_argument("--no-output-file", help = "[Opt] If passed, no output file will be created.", action="store_false", default = True, dest = "createOutputFileFlag")
     return parser.parse_args()
 
 def convertCellToOutputValueList(cell):
@@ -153,8 +154,8 @@ def main(argv):
         for headerIdx, cell in enumerate(ws.rows[0]):
             ## First, copy cell into new workbook
             cellOut = createOutputCell(cell, wsOut)
-            if args.columnList:
-                if cell.value in args.columnList:
+            if args.columns:
+                if cell.value in args.columns:
                     defaultColumnDict[headerIdx] = cell.value
             elif cell.value[:8] == "default_":
                 defaultColumnDict[headerIdx] = cell.value
@@ -191,12 +192,23 @@ def main(argv):
 
     ## Save workbook and print summary
     if len(wsMismatchDict) > 0:
-        tsString = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        fileBasename = os.path.splitext(os.path.basename(args.file))[0]
-        outputFolder = args.outputFolder
-        outputFileName = os.path.join(outputFolder,"%s_%s_Output.xlsx" % (fileBasename, tsString))
-        wbOut.save(outputFileName)
-        print "There were issues with the following worksheets, see %s for details:" % (outputFileName,)
+        if args.createOutputFileFlag:
+            tsString = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            fileBasename = os.path.splitext(os.path.basename(args.file))[0]
+            outputFolder = args.outputFolder
+            outputFileName = os.path.join(outputFolder,"%s_%s_Output.xlsx" % (fileBasename, tsString))
+            ## Create the output directory if it does not exist
+            if not os.path.exists(os.path.dirname(outputFileName)):
+                try:
+                    os.makedirs(os.path.dirname(outputFileName),)
+                    print "Output directory did not exist, created %s" % (os.path.dirname(outputFileName),)
+                except OSError as e:
+                    if e.errorno != e.EEXIST:
+                        raise e
+            wbOut.save(outputFileName)
+            print "There were issues with the following worksheets, see %s for details:" % (outputFileName,)
+        else:
+            print "There were issues with the following worksheets:"
         for key in wsMismatchDict.keys():
             print "%s : %s row%s mismatched" % (key, wsMismatchDict[key], "" if wsMismatchDict[key]==1 else "s")
 
