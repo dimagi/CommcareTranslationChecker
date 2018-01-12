@@ -161,7 +161,7 @@ def main(argv):
             if args.columns:
                 if cell.value in args.columns:
                     defaultColumnDict[headerIdx] = cell.value
-            elif cell.value[:8] == "default_":
+            elif cell.value and cell.value[:8] == "default_":
                 defaultColumnDict[headerIdx] = cell.value
             if headerIdx > maxHeaderIdx:
                 maxHeaderIdx = headerIdx
