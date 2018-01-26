@@ -206,34 +206,38 @@ def main(argv):
                 defaultColumnDict[headerIdx] = cell.value
             if headerIdx > maxHeaderIdx:
                 maxHeaderIdx = headerIdx
-        ## Create header cell in wsOut for mismatchFlag
-        mismatchFlagIdx = maxHeaderIdx + 1
-        wsOut.cell("A1").offset(column = mismatchFlagIdx).value = "mismatchFlag"
+        ## If defaultColumnDict is empty, skip processing
+        ## Otherwise, reate header cell in wsOut for mismatchFlag
+        if len(defaultColumnDict) != 0:
+            mismatchFlagIdx = maxHeaderIdx + 1
+            wsOut.cell("A1").offset(column = mismatchFlagIdx).value = "mismatchFlag"
 
 
-        for rowIdx, row in enumerate(ws.rows[1:]):
-            ## First, copy every cell into new workbook
-            for cell in row:
-                cellOut = createOutputCell(cell, wsOut)
+            for rowIdx, row in enumerate(ws.rows[1:]):
+                ## First, copy every cell into new workbook
+                for cell in row:
+                    cellOut = createOutputCell(cell, wsOut)
 
-            ## Fetch baseColumn information
-            baseColumnIdx = None
-            if args.baseColumn:
-                for colIdx in defaultColumnDict.keys():
-                    if defaultColumnDict[colIdx] == args.baseColumn:
-                        baseColumnIdx = colIdx 
+                ## Fetch baseColumn information
+                baseColumnIdx = None
+                if args.baseColumn:
+                    for colIdx in defaultColumnDict.keys():
+                        if defaultColumnDict[colIdx] == args.baseColumn:
+                            baseColumnIdx = colIdx 
 
-            ## Check row for mismatch and print results
-            rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx, args.ignoreOrder, wsOut, mismatchFlagIdx)
-            if len(rowCheckResults[1]) > 0:
-                if ws.title not in wsMismatchDict.keys():
-                    wsMismatchDict[ws.title] = 1
-                else:
-                    wsMismatchDict[ws.title] += 1
-                if args.verbose:
-                    baseColumnName = defaultColumnDict[list(rowCheckResults[0].keys())[0]]
-                    mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
-                    print("WARNING %s row %s: the output values in %s do not match %s" % (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName))
+                ## Check row for mismatch and print results
+                rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx, args.ignoreOrder, wsOut, mismatchFlagIdx)
+                if len(rowCheckResults[1]) > 0:
+                    if ws.title not in wsMismatchDict.keys():
+                        wsMismatchDict[ws.title] = 1
+                    else:
+                        wsMismatchDict[ws.title] += 1
+                    if args.verbose:
+                        baseColumnName = defaultColumnDict[list(rowCheckResults[0].keys())[0]]
+                        mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
+                        print("WARNING %s row %s: the output values in %s do not match %s" % (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName))
+        elif args.verbose:
+            print("WARNING %s: No columns found for comparison" % (ws.title,))
 
         ## If ws is a configuration sheet, run the configuration check
         if ws.title == args.configurationSheet:
