@@ -160,10 +160,7 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
         if cell.value not in (sheet.title for sheet in wb):
             getOutputCell(cell, wsOut).style = mismatchFillStyle
             if verbose:
-                print("WARNING: A sheet is missing from the workbook: ", cell.value)
-
-    ## If it does, iterate through column and check that the sheet exists
-    ## If sheet does not exist, highlight corresponding wsOut in RED 
+                print("WARNING %s: This sheet is missing from the workbook: " % (cell.value,))
 
 
 def main(argv):
