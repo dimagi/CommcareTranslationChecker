@@ -14,6 +14,8 @@ def parseArguments():
     parser.add_argument("-v", "--verbose",  help="[Opt] If passed, output will be printed to the screen pointing out which rows of the file have issues.", action="store_true", default = False)
     parser.add_argument("--output-folder", help = "[Opt] Folder in which any output files should be passed. Defaults to 'commcareTranslationChecker_Output' folder relative to folder from which the script is called. Can be relative or absolute path.", type=str, default = "commcareTranslationChecker_Output", dest='outputFolder')
     parser.add_argument("--no-output-file", help = "[Opt] If passed, no output file will be created.", action="store_false", default = True, dest = "createOutputFileFlag")
+    parser.add_argument("--configuration-sheet", help = "[Opt] Specify which sheet contains configuration information about modules and forms. Defaults to 'Modules_and_forms'", type=str, default = "Modules_and_forms", dest='configurationSheet')
+    parser.add_argument("--configuration-sheet-column", help = "[Opt] specify which column in the configuration sheet contains expected sheet names. Defaults to 'sheet_name'", type=str, default = "sheet_name", dest='configurationSheetColumnName')
     return parser.parse_args()
 
 def convertCellToOutputValueList(cell):
@@ -128,6 +130,42 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
     return (baseColumnDict, mismatchDict)
 
 
+def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose = False):
+    '''
+    Check that the workbook contains one sheet for every corresponding entry in the configurationSheetColumn of ws, and highlight all cells in wsOut that represent sheets that don't exist.
+
+    Input:
+    wb (xl.workbook.workbook.Workbook): Workbook containing sheets to check against configurationSheetColumn
+    ws (xl.worksheet.worksheet.Worksheet): Worksheet containing the column to check 
+    configurationSheetColumnName (str): Name of column to compare sheet names against
+    wsOut (xl.worksheet.worksheet.Worksheet): Worksheet to print highlighted cells to 
+    verbose (boolen [opt]): If passed, prints each missing sheet to the screen
+
+    Output:
+    List of sheets that are missing from the Workbook. If configurationSheetColumnName does not exist in ws, returns None
+    '''
+    mismatchFillStyle = xl.styles.Style(fill = xl.styles.PatternFill(fgColor = xl.styles.colors.Color(xl.styles.colors.RED), fill_type = "solid"), alignment = xl.styles.Alignment(wrap_text = True))
+
+    ## Check that the configuration column exists at all
+    colIdx = None
+    for headerIdx, cell in enumerate(ws.rows[0]):
+        if cell.value == configurationSheetColumnName:
+            colIdx = headerIdx
+    if colIdx == None:
+        print(configurationSheetColumnName, " not found in ", ws.title, ". Skipping sheet check.")
+        return None
+
+    ## Iterate over configuration column, flagging red if corresponding sheet does not exist
+    for cell in ws.columns[colIdx][1:]:
+        if cell.value not in (sheet.title for sheet in wb):
+            getOutputCell(cell, wsOut).style = mismatchFillStyle
+            if verbose:
+                print("WARNING: A sheet is missing from the workbook: ", cell.value)
+
+    ## If it does, iterate through column and check that the sheet exists
+    ## If sheet does not exist, highlight corresponding wsOut in RED 
+
+
 def main(argv):
     args = parseArguments()
     try:
@@ -149,6 +187,7 @@ def main(argv):
     for ws in wb:
         wbOut.create_sheet(title = ws.title)
         wsOut = wbOut[ws.title]
+
 
         ## Dictionary mapping column index to column name
         defaultColumnDict = {}
@@ -193,6 +232,10 @@ def main(argv):
                     baseColumnName = defaultColumnDict[list(rowCheckResults[0].keys())[0]]
                     mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
                     print("WARNING %s row %s: the output values in %s do not match %s" % (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName))
+
+        ## If ws is a configuration sheet, run the configuration check
+        if ws.title == args.configurationSheet:
+            checkConfigurationSheet(wb, ws, args.configurationSheetColumnName, wsOut, args.verbose)
 
     ## Save workbook and print summary
     if len(wsMismatchDict) > 0:

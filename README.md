@@ -28,6 +28,8 @@ $ CommcareTranslationChecker    --file <relative or absolute path to translation
 
 By default, this will read the specified file, and check all columns whose names start with "default_" against the left-most "default_" column. If any discrepancies are found between the list of "output value" tags in any of the columns, a file will be generated in the folder "commcareTranslationChecker_output." If no such folder exists relative to the current path, it will be created. This file will be an exact copy of the data in the input file, with an additional column "mismatchFlag" appended to each sheet. This column will be flagged "Y" in all rows for which a disprepancy was detected, and "N" otherwise. In addition, all cells whose "output value" tags differ from the left-most column's will be red-filled, for easy visual reference.
 
+If the translation file contains a sheet called Modules_and_forms, with a column called sheet_names, the tool will check that each value in this column corresponds to the name of one of the sheets in the workbook. If not, the corresponding cell in the sheet_names column of the output file will be highlighted red.
+
 After the file has been created, a summary will be printed outlining how many rows were found to have discrepancies per sheet.
 
 
@@ -43,6 +45,8 @@ $ CommcareTranslationChecker    --file <relative or absolute path to translation
                                 --ignore-order \
                                 --verbose \
                                 --no-output-file \
+                                --configuration-sheet \ <name of sheet containing meta information about other sheets in the workbook>
+                                --configuration-sheet-column \ <name of column in configuration-sheet containing expected sheet titles>
 
                                 
 ```
