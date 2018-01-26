@@ -99,33 +99,35 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
     ## Get columnDictKeyList for Python3
     columnDictKeyList = list(columnDict.keys())
 
-    ## Build baseColumnDict
-    if baseColumnIdx is None:
-        baseColumnIdx = sorted(columnDictKeyList)[0]
-    baseOutputValueList = convertCellToOutputValueList(row[baseColumnIdx])
-    if ignoreOrder:
-        baseOutputValueList = sorted(baseOutputValueList)
-    baseColumnDict = {baseColumnIdx : baseOutputValueList}
+    ## If the columnDictKeyList is populated, run as normal. Otherwise, skip straight to return
+    if columnDictKeyList != []:
+        ## Build baseColumnDict
+        if baseColumnIdx is None:
+            baseColumnIdx = sorted(columnDictKeyList)[0]
+        baseOutputValueList = convertCellToOutputValueList(row[baseColumnIdx])
+        if ignoreOrder:
+            baseOutputValueList = sorted(baseOutputValueList)
+        baseColumnDict = {baseColumnIdx : baseOutputValueList}
 
-    for colIdx in columnDictKeyList:
-        try:
-            curOutputValueList = convertCellToOutputValueList(row[colIdx])
-            if ignoreOrder:
-                curOutputValueList = sorted(curOutputValueList)
-            if colIdx != baseColumnIdx and baseOutputValueList != curOutputValueList:
-                mismatchDict[colIdx] = curOutputValueList
-                if wsOut:
-                    cellOut = getOutputCell(row[colIdx], wsOut)
-                    cellOut.style = mismatchFillStyle
-        except AttributeError as e:
-            pass
+        for colIdx in columnDictKeyList:
+            try:
+                curOutputValueList = convertCellToOutputValueList(row[colIdx])
+                if ignoreOrder:
+                    curOutputValueList = sorted(curOutputValueList)
+                if colIdx != baseColumnIdx and baseOutputValueList != curOutputValueList:
+                    mismatchDict[colIdx] = curOutputValueList
+                    if wsOut:
+                        cellOut = getOutputCell(row[colIdx], wsOut)
+                        cellOut.style = mismatchFillStyle
+            except AttributeError as e:
+                pass
 
-    mismatchCell =wsOut.cell(row = getOutputCell(row[0], wsOut).row, column = 1).offset(column = mismatchFlagIdx)
-    if len(mismatchDict) > 0:
-        mismatchCell.value = "Y"
-        mismatchCell.style = mismatchFillStyle
-    else:
-        mismatchCell.value = "N"
+        mismatchCell =wsOut.cell(row = getOutputCell(row[0], wsOut).row, column = 1).offset(column = mismatchFlagIdx)
+        if len(mismatchDict) > 0:
+            mismatchCell.value = "Y"
+            mismatchCell.style = mismatchFillStyle
+        else:
+            mismatchCell.value = "N"
 
     return (baseColumnDict, mismatchDict)
 
