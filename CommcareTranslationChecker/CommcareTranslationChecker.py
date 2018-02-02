@@ -26,19 +26,28 @@ def convertCellToOutputValueList(cell):
     cell (xl.cell.cell.Cell): Cell whose contents are to be parsed
 
     Output:
-    List of unicode objects, each representing an instance of <output value...> in cell
+    List of unicode objects, each representing an instance of <output value...> in cell. Any of these values that appear suspicious will be prepended with "ILL-FORMATTED TAG : "
     '''
-    #### First pass: find an instance of "<output value" and pull whole string until next ">"
-    #### Second pass: for each "<" after output value, ignore the next ">"
-    openTag = "output value=\""
+    openTag = "<output value=\""
     closeTag ="\"/>"
     outputList = []
     currentIndex = 0
     try:
         while cell.value[currentIndex:].find(openTag) != -1:
             currentIndex += cell.value[currentIndex:].find(openTag) + len(openTag)
-            outputList.append(cell.value[currentIndex:cell.value[currentIndex:].find(closeTag) + currentIndex])
+            closeTagIndex = cell.value[currentIndex:].find(closeTag)
+            if closeTagIndex != -1:
+                outputValue = cell.value[currentIndex:closeTagIndex + currentIndex]
+                if outputValue.find(openTag) == -1:
+                    outputList.append(outputValue)
+                else:
+                    outputList.append("ILL-FORMATTED TAG : " + outputValue)
+            else:
+                outputValue = cell.value[currentIndex:]
+                print("closeTag not found for " + outputValue)
+                outputList.append("ILL-FORMATTED TAG : " + outputValue)
     except TypeError as e:
+        print(e) 
         return []
 
     return outputList
@@ -84,10 +93,10 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
     baseColumnIdx(int [opt]): Index of the column to be considered "correct." Defaults to lowest-indexed column in columnDict.
     ignoreOrder(bool [opt]): If True, the order in which output values appear will be ignored for purposes of comparing cells. Otherwise, the order will matter. Defaults to False.
     wsOut(xl.worksheet.worksheet.Worksheet [opt]): Worksheet whose corresponding cell should be filled with Red if a mismatch occurs. Defaults to None.
-    mismatcFlagIdx(int [opt]): Column index where the mismatchFlag value should be printed in wsOut
+    mismatchFlagIdx(int [opt]): Column index where the mismatchFlag value should be printed in wsOut
 
     Output:
-    Tuple consisting of a single-element dictionary mapping the baseColumn's index to its outputValueList, and a dictionary mapping the column indexes of mismatched cells to their OutputValueList. wsOut altered so that every Cell that is mismatched is filled with Red, and mismatchFlag column filled with "Y" if there was a mismatch in the row, "N" otherwise.
+    Tuple consisting of a single-element dictionary mapping the baseColumn's index to its outputValueList, and a dictionary mapping the column indexes of mismatched cells to a tuple consisting of the associated cell's OutputValueList and a list of mismatchTypes. wsOut altered so that every Cell that is mismatched is filled with Red, and mismatchFlag column filled with "Y" if there was a mismatch in the row, "N" otherwise.
     '''
     mismatchDict = {}
     baseColumnDict=  {}
@@ -113,12 +122,53 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
             if ignoreOrder:
                 curOutputValueList = sorted(curOutputValueList)
             if colIdx != baseColumnIdx and baseOutputValueList != curOutputValueList:
-                mismatchDict[colIdx] = curOutputValueList
+                ## Determine how everything is mismatched
+                mismatchTypes = []
+
+                ## Determine whether any ill-formatted tags exist:
+                illFormattedValueList = []
+                for value in curOutputValueList:
+                    if value.startswith("ILL-FORMATTED TAG : "):
+                        illFormattedValueList.append(value[20:])
+                if illFormattedValueList != []:
+                    mismatchTypes.append("Ill-Formatted Tags - " + ",".join(illFormattedValueList)) 
+
+                ## Determine whether any values missing from current list
+                missingValueList = []
+                for value in baseOutputValueList:
+                    if value not in curOutputValueList:
+                        missingValueList.append(value)
+                if missingValueList != []:
+                    mismatchTypes.append("Missing Values - " + ",".join(missingValueList))
+
+                ## Determine whether extra values have been added in current list
+                extraValueList = []
+                for value in curOutputValueList:
+                    if value not in baseOutputValueList:
+                        extraValueList.append(value)
+                if extraValueList != []:
+                    mismatchTypes.append("Extra Values - " + ",".join(extraValueList))
+
+                ## Determine if, after considering missing/extra values, there are sort issues
+                if not ignoreOrder:
+                    baseListIndex = 0
+                    for value in curOutputValueList:
+                        if value not in extraValueList:
+                            while baseOutputValueList[baseListIndex] in missingValueList:
+                                baseListIndex += 1
+                            if value != baseOutputValueList[baseListIndex]:
+                                mismatchTypes.append("Out of Order")
+                                break 
+                            baseListIndex += 1
+
+                mismatchDict[colIdx] = (curOutputValueList, mismatchTypes)
                 if wsOut:
                     cellOut = getOutputCell(row[colIdx], wsOut)
                     cellOut.style = mismatchFillStyle
+
+                print(mismatchTypes)
         except AttributeError as e:
-            pass
+            print(e)
 
     mismatchCell =wsOut.cell(row = getOutputCell(row[0], wsOut).row, column = 1).offset(column = mismatchFlagIdx)
     if len(mismatchDict) > 0:
