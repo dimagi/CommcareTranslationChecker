@@ -12,3 +12,4 @@ CommcareTranslationChecker/LALAOUTPUT/
 commcareTranslationChecker_Output
 *.xlsx
 *.zip
+examples/*.txt
