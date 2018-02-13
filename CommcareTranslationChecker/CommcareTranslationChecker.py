@@ -3,7 +3,63 @@ import sys
 import os
 import datetime
 import argparse
+import traceback as tb
 import openpyxl as xl
+
+
+##### DEFINE ERRORS #####
+class CellError(Exception):
+    '''
+    Exception that occurs while processing a given cell.
+    '''
+    def __init__(self, cell, e, verbose=False):
+        '''
+        CellError initializer.
+
+        Input:
+        cell(xl.cell.cell.Cell): Cell in which the error occurred
+        e(Exception): Exception that occurred
+        verbose(bool [opt]): Boolean indicating whether verbose flag is on
+        '''
+        self.cell = cell 
+        self.e = e
+        self.verbose = verbose
+
+    def __str__(self):
+        '''
+        Print exception and cell it occurred on.
+        '''
+        if self.verbose:
+            tb.print_exc(e)
+        return "Exception %s occurred in Sheet %s Cell %s" % (str(e),self.cell.parent.title, self.cell.coordinate)
+
+class WorksheetError(Exception):
+    '''
+    Exception that occurs while processing a given worksheet.
+    '''
+    def __init__(self, ws, e, verbose=False):
+        '''
+        WorksheetError initializer.
+
+        Input:
+        ws(xl.worksheet.worksheet.Worksheet): Worksheet in which the error occurred
+        e(Exception): Exception that occurred
+        verbose(bool [opt]): Boolean indicating whether verbose flag is on
+        '''
+        self.ws = ws 
+        self.e = e
+        self.verbose = verbose
+
+    def __str__(self):
+        '''
+        Print exception and cell it occurred on.
+        '''
+        if self.verbose:
+            tb.print_exc(e)
+        print("Exception %s occurred in Sheet %s" % (str(e),self.title))
+
+
+##### DEFINE METHODS #####
 
 def parseArguments():
     parser = argparse.ArgumentParser()
@@ -16,6 +72,7 @@ def parseArguments():
     parser.add_argument("--no-output-file", help = "[Opt] If passed, no output file will be created.", action="store_false", default = True, dest = "createOutputFileFlag")
     parser.add_argument("--configuration-sheet", help = "[Opt] Specify which sheet contains configuration information about modules and forms. Defaults to 'Modules_and_forms'", type=str, default = "Modules_and_forms", dest='configurationSheet')
     parser.add_argument("--configuration-sheet-column", help = "[Opt] specify which column in the configuration sheet contains expected sheet names. Defaults to 'sheet_name'", type=str, default = "sheet_name", dest='configurationSheetColumnName')
+    parser.add_argument("--debug-mode", "-d", action="store_true", default=False, dest="debugMode")
     return parser.parse_args()
 
 def convertCellToOutputValueList(cell):
@@ -54,10 +111,14 @@ def createOutputCell(cell, wsOut):
     Output:
     New Cell in wsOut
     '''
-    newCell = wsOut.cell(coordinate = cell.coordinate) 
-    newCell.value = cell.value
-    newCell.style = xl.styles.Style(alignment = xl.styles.Alignment(wrap_text = True))
-    return newCell
+    try:
+        newCell = wsOut.cell(coordinate = cell.coordinate) 
+        newCell.value = cell.value
+        newCell.style = xl.styles.Style(alignment = xl.styles.Alignment(wrap_text = True))
+        return newCell
+    except Exception, e:
+        print("FATAL ERROR creating output cell for worksheet %s cell %s (writing to output worksheet %s) : %s" % (cell.parent.title, cell.coordinate, wsOut.title, str(e)))
+        exit(-1)
 
 def getOutputCell(cell, wsOut):
     '''
@@ -170,7 +231,9 @@ def main(argv):
         if args.verbose:
             print("Workbook Loaded")
     except xl.exceptions.InvalidFileException as e:
-        print("Invalid File!")
+        print("Invalid File: %s" % (str(e),))
+        if args.debugMode:
+            tb.print_exc(e)
         exit(-1)
 
     ## Open new Workbook
@@ -182,61 +245,67 @@ def main(argv):
 
     ## Iterate through WorkSheets
     for ws in wb:
-        wbOut.create_sheet(title = ws.title)
-        wsOut = wbOut[ws.title]
+        try:
+            wbOut.create_sheet(title = ws.title)
+            wsOut = wbOut[ws.title]
 
 
-        ## Dictionary mapping column index to column name
-        defaultColumnDict = {}
+            ## Dictionary mapping column index to column name
+            defaultColumnDict = {}
 
-        maxHeaderIdx = 0
-        ## Find all columns of format "default_[CODE]"
-        for headerIdx, cell in enumerate(ws.rows[0]):
-            ## First, copy cell into new workbook
-            cellOut = createOutputCell(cell, wsOut)
-            if args.columns:
-                if cell.value in args.columns:
+            maxHeaderIdx = 0
+            ## Find all columns of format "default_[CODE]"
+            for headerIdx, cell in enumerate(ws.rows[0]):
+                ## First, copy cell into new workbook
+                cellOut = createOutputCell(cell, wsOut)
+                if args.columns:
+                    if cell.value in args.columns:
+                        defaultColumnDict[headerIdx] = cell.value
+                elif cell.value and cell.value[:8] == "default_":
                     defaultColumnDict[headerIdx] = cell.value
-            elif cell.value and cell.value[:8] == "default_":
-                defaultColumnDict[headerIdx] = cell.value
-            if headerIdx > maxHeaderIdx:
-                maxHeaderIdx = headerIdx
-        ## If defaultColumnDict is empty, skip processing
-        ## Otherwise, reate header cell in wsOut for mismatchFlag
-        if len(defaultColumnDict) != 0:
-            mismatchFlagIdx = maxHeaderIdx + 1
-            wsOut.cell("A1").offset(column = mismatchFlagIdx).value = "mismatchFlag"
+                if headerIdx > maxHeaderIdx:
+                    maxHeaderIdx = headerIdx
+            ## If defaultColumnDict is empty, skip processing
+            ## Otherwise, reate header cell in wsOut for mismatchFlag
+            if len(defaultColumnDict) != 0:
+                mismatchFlagIdx = maxHeaderIdx + 1
+                wsOut.cell("A1").offset(column = mismatchFlagIdx).value = "mismatchFlag"
 
 
-            for rowIdx, row in enumerate(ws.rows[1:]):
-                ## First, copy every cell into new workbook
-                for cell in row:
-                    cellOut = createOutputCell(cell, wsOut)
+                for rowIdx, row in enumerate(ws.rows[1:]):
+                    ## First, copy every cell into new workbook
+                    for cell in row:
+                        cellOut = createOutputCell(cell, wsOut)
 
-                ## Fetch baseColumn information
-                baseColumnIdx = None
-                if args.baseColumn:
-                    for colIdx in defaultColumnDict.keys():
-                        if defaultColumnDict[colIdx] == args.baseColumn:
-                            baseColumnIdx = colIdx 
+                    ## Fetch baseColumn information
+                    baseColumnIdx = None
+                    if args.baseColumn:
+                        for colIdx in defaultColumnDict.keys():
+                            if defaultColumnDict[colIdx] == args.baseColumn:
+                                baseColumnIdx = colIdx 
 
-                ## Check row for mismatch and print results
-                rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx, args.ignoreOrder, wsOut, mismatchFlagIdx)
-                if len(rowCheckResults[1]) > 0:
-                    if ws.title not in wsMismatchDict.keys():
-                        wsMismatchDict[ws.title] = 1
-                    else:
-                        wsMismatchDict[ws.title] += 1
-                    if args.verbose:
-                        baseColumnName = defaultColumnDict[list(rowCheckResults[0].keys())[0]]
-                        mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
-                        print("WARNING %s row %s: the output values in %s do not match %s" % (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName))
-        elif args.verbose:
-            print("WARNING %s: No columns found for comparison" % (ws.title,))
+                    ## Check row for mismatch and print results
+                    rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx, args.ignoreOrder, wsOut, mismatchFlagIdx)
+                    if len(rowCheckResults[1]) > 0:
+                        if ws.title not in wsMismatchDict.keys():
+                            wsMismatchDict[ws.title] = 1
+                        else:
+                            wsMismatchDict[ws.title] += 1
+                        if args.verbose:
+                            baseColumnName = defaultColumnDict[list(rowCheckResults[0].keys())[0]]
+                            mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
+                            print("WARNING %s row %s: the output values in %s do not match %s" % (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName))
+            elif args.verbose:
+                print("WARNING %s: No columns found for comparison" % (ws.title,))
 
-        ## If ws is a configuration sheet, run the configuration check
-        if ws.title == args.configurationSheet:
-            checkConfigurationSheet(wb, ws, args.configurationSheetColumnName, wsOut, args.verbose)
+            ## If ws is a configuration sheet, run the configuration check
+            if ws.title == args.configurationSheet:
+                checkConfigurationSheet(wb, ws, args.configurationSheetColumnName, wsOut, args.verbose)
+        except Exception, e:
+            print("FATAL ERROR in worksheet %s : %s" % (ws.title, str(e)))
+            if args.debugMode:
+                tb.print_exc(e)
+            exit(-1)
 
     ## Save workbook and print summary
     if len(wsMismatchDict) > 0:
@@ -252,7 +321,9 @@ def main(argv):
                     print("Output directory did not exist, created %s" % (os.path.dirname(outputFileName),))
                 except OSError as e:
                     if e.errorno != e.EEXIST:
-                        raise e
+                        print("ERROR CREATING OUTPUT DIRECTORY : %s" % (str(e),))
+                        if args.debugMode:
+                            tb.print_exc(e)
             wbOut.save(outputFileName)
             print("There were issues with the following worksheets, see %s for details:" % (outputFileName,))
         else:
