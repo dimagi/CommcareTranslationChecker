@@ -6,6 +6,9 @@ import argparse
 import traceback as tb
 import openpyxl as xl
 
+##### DEFINE GLOBALS #####
+NON_LINGUISTIC_CHARACTERS = "~`!@#$%^&*()_-+={[}]|\\:;\"'<,>.?/"
+
 ##### DEFINE METHODS #####
 
 def parseArguments():
@@ -20,6 +23,9 @@ def parseArguments():
     parser.add_argument("--configuration-sheet", help = "[Opt] Specify which sheet contains configuration information about modules and forms. Defaults to 'Modules_and_forms'", type=str, default = "Modules_and_forms", dest='configurationSheet')
     parser.add_argument("--configuration-sheet-column", help = "[Opt] specify which column in the configuration sheet contains expected sheet names. Defaults to 'sheet_name'", type=str, default = "sheet_name", dest='configurationSheetColumnName')
     parser.add_argument("--output-mismatch-types", help = "[Opt] If passed, information will be returned about the exact type of output value mismatch that occurs.", action="store_true", default = False, dest = "outputMismatchTypesFlag")
+    parser.add_argument("--format-check", help = "[Opt] If passed, text formatting will be checked as well as output values.", action = "store_true", default = False, dest = "formatCheckFlag")
+    parser.add_argument("--format-check-characters", help = "[Opt] A list of characters considered non-linguistic that will be counted when format-check is run. The characters \\ and \" need to be escaped as \\\\ and \\\". Defaults to CommcareTranslationChecker.NON_LINGUISTIC_CHARACTERS", type=str, default = None, dest = "formatCheckCharacters")
+    parser.add_argument("--format-check-characters-add", help = "[Opt] A list of characters to be added to the default or passed format-check-characters list. The characters \\ and \" need to be escaped as \\\\ and \\\". Defaults to None.", type=str, default = None, dest = "formatCheckCharactersAdd")
     parser.add_argument("--debug-mode", "-d", action="store_true", default=False, dest="debugMode")
     return parser.parse_args()
 
@@ -93,8 +99,32 @@ def getOutputCell(cell, wsOut):
 
     return wsOut[cell.coordinate]
 
+def getNonLinguisticCharacterCount(val, additionalCharactersToCatch = None, characterList = None):
+    '''
+    Check a string for how many of each kind of non-linguistic character it contains and return a dictionary mapping character to count.
 
-def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = False, wsOut = None, mismatchFlagIdx = None, outputMismatchTypesFlag = False):
+    Input:
+    val(str): string to get counts from
+    additionalCharactersToCatch(str [opt]): string of characters to append onto the characterList
+    characterList(str [opt]): string of characters considered non-linguistic. Defaults to CommcareTranslationChecker.NON_LINGUISTIC_CHARACTERS
+
+    Output:
+    Dictionary mapping non-linguistic character to count of appearance in val 
+    '''
+    charCountDict = {}
+
+    if characterList == None:
+        characterList = NON_LINGUISTIC_CHARACTERS
+    if additionalCharactersToCatch != None:
+        characterList += "".join([x for x in additionalCharactersToCatch if x not in characterList])
+
+    for char in characterList:
+        charCountDict[char] = val.count(char)
+
+    return charCountDict
+
+
+def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = False, wsOut = None, mismatchFlagIdx = None, outputMismatchTypesFlag = False, formatCheckFlag = False, formatCheckCharacters = None, formatCheckCharactersAdd = None):
     '''
     Check all of the given columns in a row provided for any mismatch in the columns' OutputValueList 
 
@@ -106,16 +136,19 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
     wsOut(xl.worksheet.worksheet.Worksheet [opt]): Worksheet whose corresponding cell should be filled with Red if a mismatch occurs. Defaults to None.
     mismatchFlagIdx(int [opt]): Column index where the mismatchFlag value should be printed in wsOut
     outputMismatchTypesFlag(bool [opt]): Flag indicating whether to output the full mismatch types to the results file. Defaults to False
+    formatCheckFlag(bool [opt]): Flag indicating whether to check for bad text formatting outside of output value. Defaults to False
 
     Output:
     Tuple consisting of a single-element dictionary mapping the baseColumn's index to its outputValueList, and a dictionary mapping the column indexes of mismatched cells to a tuple consisting of the associated cell's OutputValueList and a list of mismatchTypes. wsOut altered so that every Cell that is mismatched is filled with Red, and mismatchFlag column filled with "Y" if there was a mismatch in the row, "N" otherwise.
     '''
     mismatchDict = {}
     baseColumnDict=  {}
+    baseFormatDict = {}
 
     baseOutputValueList = None
 
     mismatchFillStyle = xl.styles.Style(fill = xl.styles.PatternFill(fgColor = xl.styles.colors.Color(xl.styles.colors.RED), fill_type = "solid"), alignment = xl.styles.Alignment(wrap_text = True))
+    lesserMismatchFillStyle = xl.styles.Style(fill = xl.styles.PatternFill(fgColor = xl.styles.colors.Color(xl.styles.colors.YELLOW), fill_type = "solid"), alignment = xl.styles.Alignment(wrap_text = True))
 
     ## Get columnDictKeyList for Python3
     columnDictKeyList = list(columnDict.keys())
@@ -128,12 +161,19 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
         baseOutputValueList = sorted(baseOutputValueList)
     baseColumnDict = {baseColumnIdx : baseOutputValueList}
 
+    ## Build baseFormatDict if needed
+    if formatCheckFlag:
+        baseFormatDict = getNonLinguisticCharacterCount(row[baseColumnIdx].value, formatCheckCharacters, formatCheckCharactersAdd)
+
     for colIdx in columnDictKeyList:
         try:
             curOutputValueList = convertCellToOutputValueList(row[colIdx])
             if ignoreOrder:
                 curOutputValueList = sorted(curOutputValueList)
-            if colIdx != baseColumnIdx and baseOutputValueList != curOutputValueList:
+            curFormatDict = {}
+            if formatCheckFlag:
+                curFormatDict = getNonLinguisticCharacterCount(row[colIdx].value, formatCheckCharacters, formatCheckCharactersAdd)
+            if colIdx != baseColumnIdx and (baseOutputValueList != curOutputValueList or baseFormatDict != curFormatDict):
                 ## Determine how everything is mismatched
                 mismatchTypes = []
 
@@ -173,16 +213,31 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                                 break 
                             baseListIndex += 1
 
+                ## Determine whether there are any text formatting mismatches
+                if baseFormatDict != curFormatDict:
+                    formatDiffList = []
+                    for key in baseFormatDict.keys():
+                        print(curFormatDict)
+                        print(baseFormatDict)
+                        keyDiff = curFormatDict[key] - baseFormatDict[key]
+                        if keyDiff != 0:
+                            formatDiffList.append("%s : %s" % (key, str(keyDiff) if keyDiff < 0 else "+" + str(keyDiff)))
+                    mismatchTypes.append("Text Formatting Mismatch - " + ",".join(formatDiffList))
+
                 mismatchDict[colIdx] = (curOutputValueList, mismatchTypes)
                 if wsOut:
                     cellOut = getOutputCell(row[colIdx], wsOut)
-                    cellOut.style = mismatchFillStyle
+                    if len(mismatchTypes) == 1 and "Text Formatting Mismatch" in mismatchTypes[0]:
+                        curMismatchFillStyle = lesserMismatchFillStyle
+                    else:
+                        curMismatchFillStyle = mismatchFillStyle
+                    cellOut.style = curMismatchFillStyle
                     if outputMismatchTypesFlag:
                         mismatchTypesColIdx = appendColumnIfNotExist(wsOut, "mismatch_%s"%(columnDict[colIdx],))
                         mismatchTypesCellOut = wsOut.rows[getOutputCell(row[0],wsOut).row-1][mismatchTypesColIdx]
                         #mismatchTypesCellOut = getOutputCell(row[0], wsOut).row[mismatchTypesColIdx]
                         mismatchTypesCellOut.value = ",".join(mismatchTypes)
-                        mismatchTypesCellOut.style = mismatchFillStyle
+                        mismatchTypesCellOut.style = curMismatchFillStyle
 
         except AttributeError as e:
             print(e)
@@ -193,8 +248,12 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
 
     mismatchCell =wsOut.cell(row = getOutputCell(row[0], wsOut).row, column = 1).offset(column = mismatchFlagIdx)
     if len(mismatchDict) > 0:
+        curMismatchFillStyle = lesserMismatchFillStyle
+        for key in mismatchDict:
+            if len(mismatchDict[key][1]) > 1 or "Text Formatting Mismatch" not in mismatchDict[key][1][0]:
+                curMismatchFillStyle = mismatchFillStyle
         mismatchCell.value = "Y"
-        mismatchCell.style = mismatchFillStyle
+        mismatchCell.style = curMismatchFillStyle
     else:
         mismatchCell.value = "N"
 
@@ -316,7 +375,7 @@ def main(argv):
                                 baseColumnIdx = colIdx 
 
                     ## Check row for mismatch and print results
-                    rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx, args.ignoreOrder, wsOut, mismatchFlagIdx,args.outputMismatchTypesFlag)
+                    rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx, args.ignoreOrder, wsOut, mismatchFlagIdx, args.outputMismatchTypesFlag, args.formatCheckFlag, args.formatCheckCharactersAdd, args.formatCheckCharacters)
                     if len(rowCheckResults[1]) > 0:
                         if ws.title not in wsMismatchDict.keys():
                             wsMismatchDict[ws.title] = 1
