@@ -6,59 +6,6 @@ import argparse
 import traceback as tb
 import openpyxl as xl
 
-
-##### DEFINE ERRORS #####
-class CellError(Exception):
-    '''
-    Exception that occurs while processing a given cell.
-    '''
-    def __init__(self, cell, e, verbose=False):
-        '''
-        CellError initializer.
-
-        Input:
-        cell(xl.cell.cell.Cell): Cell in which the error occurred
-        e(Exception): Exception that occurred
-        verbose(bool [opt]): Boolean indicating whether verbose flag is on
-        '''
-        self.cell = cell 
-        self.e = e
-        self.verbose = verbose
-
-    def __str__(self):
-        '''
-        Print exception and cell it occurred on.
-        '''
-        if self.verbose:
-            tb.print_exc(e)
-        return "Exception %s occurred in Sheet %s Cell %s" % (str(e),self.cell.parent.title, self.cell.coordinate)
-
-class WorksheetError(Exception):
-    '''
-    Exception that occurs while processing a given worksheet.
-    '''
-    def __init__(self, ws, e, verbose=False):
-        '''
-        WorksheetError initializer.
-
-        Input:
-        ws(xl.worksheet.worksheet.Worksheet): Worksheet in which the error occurred
-        e(Exception): Exception that occurred
-        verbose(bool [opt]): Boolean indicating whether verbose flag is on
-        '''
-        self.ws = ws 
-        self.e = e
-        self.verbose = verbose
-
-    def __str__(self):
-        '''
-        Print exception and cell it occurred on.
-        '''
-        if self.verbose:
-            tb.print_exc(e)
-        print("Exception %s occurred in Sheet %s" % (str(e),self.title))
-
-
 ##### DEFINE METHODS #####
 
 def parseArguments():
@@ -72,6 +19,7 @@ def parseArguments():
     parser.add_argument("--no-output-file", help = "[Opt] If passed, no output file will be created.", action="store_false", default = True, dest = "createOutputFileFlag")
     parser.add_argument("--configuration-sheet", help = "[Opt] Specify which sheet contains configuration information about modules and forms. Defaults to 'Modules_and_forms'", type=str, default = "Modules_and_forms", dest='configurationSheet')
     parser.add_argument("--configuration-sheet-column", help = "[Opt] specify which column in the configuration sheet contains expected sheet names. Defaults to 'sheet_name'", type=str, default = "sheet_name", dest='configurationSheetColumnName')
+    parser.add_argument("--output-mismatch-types", help = "[Opt] If passed, information will be returned about the exact type of output value mismatch that occurs.", action="store_true", default = False, dest = "outputMismatchTypesFlag")
     parser.add_argument("--debug-mode", "-d", action="store_true", default=False, dest="debugMode")
     return parser.parse_args()
 
@@ -104,8 +52,10 @@ def convertCellToOutputValueList(cell):
                 print("closeTag not found for " + outputValue)
                 outputList.append("ILL-FORMATTED TAG : " + outputValue)
     except TypeError as e:
-        print(e) 
         return []
+    except Exception, e:
+        print("FATAL ERROR determining output values for worksheet %s cell %s : %s" % (cell.parent.title, cell.coordinate, str(e)))
+        exit(-1)
 
     return outputList
 
@@ -144,7 +94,7 @@ def getOutputCell(cell, wsOut):
     return wsOut[cell.coordinate]
 
 
-def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = False, wsOut = None, mismatchFlagIdx = None):
+def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = False, wsOut = None, mismatchFlagIdx = None, outputMismatchTypesFlag = False):
     '''
     Check all of the given columns in a row provided for any mismatch in the columns' OutputValueList 
 
@@ -155,6 +105,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
     ignoreOrder(bool [opt]): If True, the order in which output values appear will be ignored for purposes of comparing cells. Otherwise, the order will matter. Defaults to False.
     wsOut(xl.worksheet.worksheet.Worksheet [opt]): Worksheet whose corresponding cell should be filled with Red if a mismatch occurs. Defaults to None.
     mismatchFlagIdx(int [opt]): Column index where the mismatchFlag value should be printed in wsOut
+    outputMismatchTypesFlag(bool [opt]): Flag indicating whether to output the full mismatch types to the results file. Defaults to False
 
     Output:
     Tuple consisting of a single-element dictionary mapping the baseColumn's index to its outputValueList, and a dictionary mapping the column indexes of mismatched cells to a tuple consisting of the associated cell's OutputValueList and a list of mismatchTypes. wsOut altered so that every Cell that is mismatched is filled with Red, and mismatchFlag column filled with "Y" if there was a mismatch in the row, "N" otherwise.
@@ -226,10 +177,19 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                 if wsOut:
                     cellOut = getOutputCell(row[colIdx], wsOut)
                     cellOut.style = mismatchFillStyle
+                    if outputMismatchTypesFlag:
+                        mismatchTypesColIdx = appendColumnIfNotExist(wsOut, "mismatch_%s"%(columnDict[colIdx],))
+                        mismatchTypesCellOut = wsOut.rows[getOutputCell(row[0],wsOut).row-1][mismatchTypesColIdx]
+                        #mismatchTypesCellOut = getOutputCell(row[0], wsOut).row[mismatchTypesColIdx]
+                        mismatchTypesCellOut.value = ",".join(mismatchTypes)
+                        mismatchTypesCellOut.style = mismatchFillStyle
 
-                print(mismatchTypes)
         except AttributeError as e:
             print(e)
+        except Exception, e:
+            print("FATAL ERROR comparing to baseColumn worksheet %s cell %s : %s" % (row[colIdx].parent.title, row[colIdx].coordinate, str(e)))
+            tb.print_exc(e)
+            exit(-1)
 
     mismatchCell =wsOut.cell(row = getOutputCell(row[0], wsOut).row, column = 1).offset(column = mismatchFlagIdx)
     if len(mismatchDict) > 0:
@@ -239,6 +199,27 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
         mismatchCell.value = "N"
 
     return (baseColumnDict, mismatchDict)
+
+def appendColumnIfNotExist(ws, columnHeader):
+    '''
+    Check whether a column with the given header already exists in ws, and append it if not.
+
+    Input:
+    ws (xl.worksheet.worksheet.worksheet): Worksheet to append column to
+    columnHeader (str): Header of new column
+
+    Output:
+    If column with columnHeader does not exist, append it to ws. Return index of column with columnHeader.
+    '''
+    maxHeaderIdx = 0
+    for headerIdx, cell in enumerate(ws.rows[0]):
+        if cell.value == columnHeader:
+            return headerIdx
+        maxHeaderIdx = max(headerIdx, maxHeaderIdx)
+    newColIdx = maxHeaderIdx + 1
+    ws.cell("A1").offset(column = newColIdx).value = columnHeader
+    return newColIdx
+
 
 
 def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose = False):
@@ -300,8 +281,9 @@ def main(argv):
             wsOut = wbOut[ws.title]
 
 
-            ## Dictionary mapping column index to column name
+            ## Dictionaries mapping column index to column name
             defaultColumnDict = {}
+            mismatchTypesColumnDict = {}
 
             maxHeaderIdx = 0
             ## Find all columns of format "default_[CODE]"
@@ -316,10 +298,9 @@ def main(argv):
                 if headerIdx > maxHeaderIdx:
                     maxHeaderIdx = headerIdx
             ## If defaultColumnDict is empty, skip processing
-            ## Otherwise, reate header cell in wsOut for mismatchFlag
+            ## Otherwise, create header cell in wsOut for mismatchFlag
             if len(defaultColumnDict) != 0:
-                mismatchFlagIdx = maxHeaderIdx + 1
-                wsOut.cell("A1").offset(column = mismatchFlagIdx).value = "mismatchFlag"
+                mismatchFlagIdx = appendColumnIfNotExist(wsOut, "mismatchFlag")
 
 
                 for rowIdx, row in enumerate(ws.rows[1:]):
@@ -335,7 +316,7 @@ def main(argv):
                                 baseColumnIdx = colIdx 
 
                     ## Check row for mismatch and print results
-                    rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx, args.ignoreOrder, wsOut, mismatchFlagIdx)
+                    rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx, args.ignoreOrder, wsOut, mismatchFlagIdx,args.outputMismatchTypesFlag)
                     if len(rowCheckResults[1]) > 0:
                         if ws.title not in wsMismatchDict.keys():
                             wsMismatchDict[ws.title] = 1
@@ -343,7 +324,10 @@ def main(argv):
                             wsMismatchDict[ws.title] += 1
                         if args.verbose:
                             baseColumnName = defaultColumnDict[list(rowCheckResults[0].keys())[0]]
-                            mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
+                            if args.outputMismatchTypesFlag:
+                                mismatchColumnNames = ",".join("%s (%s)" % (defaultColumnDict[i], ",".join(rowCheckResults[1][i][1])) for i in rowCheckResults[1].keys())
+                            else:
+                                mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
                             print("WARNING %s row %s: the output values in %s do not match %s" % (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName))
             elif args.verbose:
                 print("WARNING %s: No columns found for comparison" % (ws.title,))
