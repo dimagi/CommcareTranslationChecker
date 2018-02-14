@@ -145,6 +145,7 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
     List of sheets that are missing from the Workbook. If configurationSheetColumnName does not exist in ws, returns None
     '''
     mismatchFillStyle = xl.styles.Style(fill = xl.styles.PatternFill(fgColor = xl.styles.colors.Color(xl.styles.colors.RED), fill_type = "solid"), alignment = xl.styles.Alignment(wrap_text = True))
+    missingSheetList = []
 
     ## Check that the configuration column exists at all
     colIdx = None
@@ -158,6 +159,7 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
     ## Iterate over configuration column, flagging red if corresponding sheet does not exist
     for cell in ws.columns[colIdx][1:]:
         if cell.value not in (sheet.title for sheet in wb):
+            missingSheetList.append(cell.value)
             getOutputCell(cell, wsOut).style = mismatchFillStyle
             if verbose:
                 print("WARNING %s: This sheet is missing from the workbook: " % (cell.value,))
@@ -179,6 +181,7 @@ def main(argv):
 
     ## Summary lists
     wsMismatchDict = {}
+    wbMissingSheets = []
 
     ## Iterate through WorkSheets
     for ws in wb:
@@ -232,10 +235,10 @@ def main(argv):
 
         ## If ws is a configuration sheet, run the configuration check
         if ws.title == args.configurationSheet:
-            checkConfigurationSheet(wb, ws, args.configurationSheetColumnName, wsOut, args.verbose)
+            wbMissingSheets = checkConfigurationSheet(wb, ws, args.configurationSheetColumnName, wsOut, args.verbose)
 
     ## Save workbook and print summary
-    if len(wsMismatchDict) > 0:
+    if len(wsMismatchDict) > 0 or wbMissingSheets is None or len(wbMissingSheets) > 0:
         if args.createOutputFileFlag:
             tsString = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             fileBasename = os.path.splitext(os.path.basename(args.file))[0]
