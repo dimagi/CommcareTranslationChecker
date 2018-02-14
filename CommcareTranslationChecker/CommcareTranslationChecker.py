@@ -217,8 +217,6 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                 if baseFormatDict != curFormatDict:
                     formatDiffList = []
                     for key in baseFormatDict.keys():
-                        print(curFormatDict)
-                        print(baseFormatDict)
                         keyDiff = curFormatDict[key] - baseFormatDict[key]
                         if keyDiff != 0:
                             formatDiffList.append("%s : %s" % (key, str(keyDiff) if keyDiff < 0 else "+" + str(keyDiff)))
