@@ -5,3 +5,11 @@ dist/
 build/
 *.egg-info
 BulkTranslationChecker.pyc
+*.pyc
+CommcareTranslationChecker/bulkTranslationChecker_Output/
+CommcareTranslationChecker/commcareTranslationChecker_Output/
+CommcareTranslationChecker/LALAOUTPUT/
+commcareTranslationChecker_Output
+*.xlsx
+*.zip
+examples/*.txt
