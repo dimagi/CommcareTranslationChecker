@@ -204,13 +204,13 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                     mismatchTypes.append("Extra Values - " + ",".join(extraValueList))
 
                 ## Determine if, after considering missing/extra values, there are sort issues
-                if not ignoreOrder:
+                if not ignoreOrder and len(baseOutputValueList) != 0:
                     baseListIndex = 0
                     for value in curOutputValueList:
                         if value not in extraValueList:
-                            while baseOutputValueList[baseListIndex] in missingValueList:
+                            while len(baseOutputValueList) > baseListIndex and baseOutputValueList[baseListIndex] in missingValueList:
                                 baseListIndex += 1
-                            if value != baseOutputValueList[baseListIndex]:
+                            if len(baseOutputValueList) > baseListIndex and value != baseOutputValueList[baseListIndex]:
                                 mismatchTypes.append("Out of Order")
                                 break 
                             baseListIndex += 1
