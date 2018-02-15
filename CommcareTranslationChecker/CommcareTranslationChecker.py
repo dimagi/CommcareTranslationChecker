@@ -112,15 +112,16 @@ def getNonLinguisticCharacterCount(val, additionalCharactersToCatch = None, char
     Dictionary mapping non-linguistic character to count of appearance in val 
     '''
     charCountDict = {}
+    if val is None:
+        val = ""
 
-    if val is not None:
-        if characterList == None:
-            characterList = NON_LINGUISTIC_CHARACTERS
-        if additionalCharactersToCatch != None:
-            characterList += "".join([x for x in additionalCharactersToCatch if x not in characterList])
+    if characterList == None:
+        characterList = NON_LINGUISTIC_CHARACTERS
+    if additionalCharactersToCatch != None:
+        characterList += "".join([x for x in additionalCharactersToCatch if x not in characterList])
 
-        for char in characterList:
-            charCountDict[char] = val.count(char)
+    for char in characterList:
+        charCountDict[char] = val.count(char)
 
     return charCountDict
 
