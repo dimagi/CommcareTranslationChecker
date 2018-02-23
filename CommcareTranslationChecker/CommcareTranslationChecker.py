@@ -224,7 +224,9 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                             formatDiffList.append("%s : %s" % (key, str(keyDiff) if keyDiff < 0 else "+" + str(keyDiff)))
                     mismatchTypes.append("Text Formatting Mismatch - " + ",".join(formatDiffList))
 
-                mismatchDict[colIdx] = (curOutputValueList, mismatchTypes)
+                if len(mismatchTypes) > 0:
+                    mismatchDict[colIdx] = (curOutputValueList, mismatchTypes)
+
                 if wsOut:
                     cellOut = getOutputCell(row[colIdx], wsOut)
                     if len(mismatchTypes) == 1 and "Text Formatting Mismatch" in mismatchTypes[0]:
