@@ -3,7 +3,13 @@ import sys
 import os
 import datetime
 import argparse
+import traceback as tb
 import openpyxl as xl
+
+##### DEFINE GLOBALS #####
+NON_LINGUISTIC_CHARACTERS = "~`!@#$%^&*()_-+={[}]|\\:;\"'<,>.?/"
+
+##### DEFINE METHODS #####
 
 def parseArguments():
     parser = argparse.ArgumentParser()
@@ -16,6 +22,11 @@ def parseArguments():
     parser.add_argument("--no-output-file", help = "[Opt] If passed, no output file will be created.", action="store_false", default = True, dest = "createOutputFileFlag")
     parser.add_argument("--configuration-sheet", help = "[Opt] Specify which sheet contains configuration information about modules and forms. Defaults to 'Modules_and_forms'", type=str, default = "Modules_and_forms", dest='configurationSheet')
     parser.add_argument("--configuration-sheet-column", help = "[Opt] specify which column in the configuration sheet contains expected sheet names. Defaults to 'sheet_name'", type=str, default = "sheet_name", dest='configurationSheetColumnName')
+    parser.add_argument("--output-mismatch-types", help = "[Opt] If passed, information will be returned about the exact type of output value mismatch that occurs.", action="store_true", default = False, dest = "outputMismatchTypesFlag")
+    parser.add_argument("--format-check", help = "[Opt] If passed, text formatting will be checked as well as output values.", action = "store_true", default = False, dest = "formatCheckFlag")
+    parser.add_argument("--format-check-characters", help = "[Opt] A list of characters considered non-linguistic that will be counted when format-check is run. The characters \\ and \" need to be escaped as \\\\ and \\\". Defaults to CommcareTranslationChecker.NON_LINGUISTIC_CHARACTERS", type=str, default = None, dest = "formatCheckCharacters")
+    parser.add_argument("--format-check-characters-add", help = "[Opt] A list of characters to be added to the default or passed format-check-characters list. The characters \\ and \" need to be escaped as \\\\ and \\\". Defaults to None.", type=str, default = None, dest = "formatCheckCharactersAdd")
+    parser.add_argument("--debug-mode", "-d", action="store_true", default=False, dest="debugMode")
     return parser.parse_args()
 
 def convertCellToOutputValueList(cell):
@@ -26,20 +37,31 @@ def convertCellToOutputValueList(cell):
     cell (xl.cell.cell.Cell): Cell whose contents are to be parsed
 
     Output:
-    List of unicode objects, each representing an instance of <output value...> in cell
+    List of unicode objects, each representing an instance of <output value...> in cell. Any of these values that appear suspicious will be prepended with "ILL-FORMATTED TAG : "
     '''
-    #### First pass: find an instance of "<output value" and pull whole string until next ">"
-    #### Second pass: for each "<" after output value, ignore the next ">"
-    openTag = "output value=\""
+    openTag = "<output value=\""
     closeTag ="\"/>"
     outputList = []
     currentIndex = 0
     try:
         while cell.value[currentIndex:].find(openTag) != -1:
             currentIndex += cell.value[currentIndex:].find(openTag) + len(openTag)
-            outputList.append(cell.value[currentIndex:cell.value[currentIndex:].find(closeTag) + currentIndex])
+            closeTagIndex = cell.value[currentIndex:].find(closeTag)
+            if closeTagIndex != -1:
+                outputValue = cell.value[currentIndex:closeTagIndex + currentIndex]
+                if outputValue.find(openTag) == -1:
+                    outputList.append(outputValue)
+                else:
+                    outputList.append("ILL-FORMATTED TAG : " + outputValue)
+            else:
+                outputValue = cell.value[currentIndex:]
+                print("closeTag not found for " + outputValue)
+                outputList.append("ILL-FORMATTED TAG : " + outputValue)
     except TypeError as e:
         return []
+    except Exception, e:
+        print("FATAL ERROR determining output values for worksheet %s cell %s : %s" % (cell.parent.title, cell.coordinate, str(e)))
+        exit(-1)
 
     return outputList
 
@@ -54,10 +76,14 @@ def createOutputCell(cell, wsOut):
     Output:
     New Cell in wsOut
     '''
-    newCell = wsOut.cell(coordinate = cell.coordinate) 
-    newCell.value = cell.value
-    newCell.style = xl.styles.Style(alignment = xl.styles.Alignment(wrap_text = True))
-    return newCell
+    try:
+        newCell = wsOut.cell(coordinate = cell.coordinate) 
+        newCell.value = cell.value
+        newCell.style = xl.styles.Style(alignment = xl.styles.Alignment(wrap_text = True))
+        return newCell
+    except Exception, e:
+        print("FATAL ERROR creating output cell for worksheet %s cell %s (writing to output worksheet %s) : %s" % (cell.parent.title, cell.coordinate, wsOut.title, str(e)))
+        exit(-1)
 
 def getOutputCell(cell, wsOut):
     '''
@@ -73,8 +99,34 @@ def getOutputCell(cell, wsOut):
 
     return wsOut[cell.coordinate]
 
+def getNonLinguisticCharacterCount(val, additionalCharactersToCatch = None, characterList = None):
+    '''
+    Check a string for how many of each kind of non-linguistic character it contains and return a dictionary mapping character to count.
 
-def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = False, wsOut = None, mismatchFlagIdx = None):
+    Input:
+    val(str): string to get counts from
+    additionalCharactersToCatch(str [opt]): string of characters to append onto the characterList
+    characterList(str [opt]): string of characters considered non-linguistic. Defaults to CommcareTranslationChecker.NON_LINGUISTIC_CHARACTERS
+
+    Output:
+    Dictionary mapping non-linguistic character to count of appearance in val 
+    '''
+    charCountDict = {}
+    if val is None:
+        val = ""
+
+    if characterList == None:
+        characterList = NON_LINGUISTIC_CHARACTERS
+    if additionalCharactersToCatch != None:
+        characterList += "".join([x for x in additionalCharactersToCatch if x not in characterList])
+
+    for char in characterList:
+        charCountDict[char] = val.count(char)
+
+    return charCountDict
+
+
+def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = False, wsOut = None, mismatchFlagIdx = None, outputMismatchTypesFlag = False, formatCheckFlag = False, formatCheckCharacters = None, formatCheckCharactersAdd = None):
     '''
     Check all of the given columns in a row provided for any mismatch in the columns' OutputValueList 
 
@@ -84,17 +136,21 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
     baseColumnIdx(int [opt]): Index of the column to be considered "correct." Defaults to lowest-indexed column in columnDict.
     ignoreOrder(bool [opt]): If True, the order in which output values appear will be ignored for purposes of comparing cells. Otherwise, the order will matter. Defaults to False.
     wsOut(xl.worksheet.worksheet.Worksheet [opt]): Worksheet whose corresponding cell should be filled with Red if a mismatch occurs. Defaults to None.
-    mismatcFlagIdx(int [opt]): Column index where the mismatchFlag value should be printed in wsOut
+    mismatchFlagIdx(int [opt]): Column index where the mismatchFlag value should be printed in wsOut
+    outputMismatchTypesFlag(bool [opt]): Flag indicating whether to output the full mismatch types to the results file. Defaults to False
+    formatCheckFlag(bool [opt]): Flag indicating whether to check for bad text formatting outside of output value. Defaults to False
 
     Output:
-    Tuple consisting of a single-element dictionary mapping the baseColumn's index to its outputValueList, and a dictionary mapping the column indexes of mismatched cells to their OutputValueList. wsOut altered so that every Cell that is mismatched is filled with Red, and mismatchFlag column filled with "Y" if there was a mismatch in the row, "N" otherwise.
+    Tuple consisting of a single-element dictionary mapping the baseColumn's index to its outputValueList, and a dictionary mapping the column indexes of mismatched cells to a tuple consisting of the associated cell's OutputValueList and a list of mismatchTypes. wsOut altered so that every Cell that is mismatched is filled with Red, and mismatchFlag column filled with "Y" if there was a mismatch in the row, "N" otherwise.
     '''
     mismatchDict = {}
     baseColumnDict=  {}
+    baseFormatDict = {}
 
     baseOutputValueList = None
 
     mismatchFillStyle = xl.styles.Style(fill = xl.styles.PatternFill(fgColor = xl.styles.colors.Color(xl.styles.colors.RED), fill_type = "solid"), alignment = xl.styles.Alignment(wrap_text = True))
+    lesserMismatchFillStyle = xl.styles.Style(fill = xl.styles.PatternFill(fgColor = xl.styles.colors.Color(xl.styles.colors.YELLOW), fill_type = "solid"), alignment = xl.styles.Alignment(wrap_text = True))
 
     ## Get columnDictKeyList for Python3
     columnDictKeyList = list(columnDict.keys())
@@ -107,27 +163,124 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
         baseOutputValueList = sorted(baseOutputValueList)
     baseColumnDict = {baseColumnIdx : baseOutputValueList}
 
+    ## Build baseFormatDict if needed
+    if formatCheckFlag:
+        baseFormatDict = getNonLinguisticCharacterCount(row[baseColumnIdx].value, formatCheckCharacters, formatCheckCharactersAdd)
+
     for colIdx in columnDictKeyList:
         try:
             curOutputValueList = convertCellToOutputValueList(row[colIdx])
             if ignoreOrder:
                 curOutputValueList = sorted(curOutputValueList)
-            if colIdx != baseColumnIdx and baseOutputValueList != curOutputValueList:
-                mismatchDict[colIdx] = curOutputValueList
+            curFormatDict = {}
+            if formatCheckFlag:
+                curFormatDict = getNonLinguisticCharacterCount(row[colIdx].value, formatCheckCharacters, formatCheckCharactersAdd)
+            if colIdx != baseColumnIdx and (baseOutputValueList != curOutputValueList or baseFormatDict != curFormatDict):
+                ## Determine how everything is mismatched
+                mismatchTypes = []
+
+                ## Determine whether any ill-formatted tags exist:
+                illFormattedValueList = []
+                for value in curOutputValueList:
+                    if value.startswith("ILL-FORMATTED TAG : "):
+                        illFormattedValueList.append(value[20:])
+                if illFormattedValueList != []:
+                    mismatchTypes.append("Ill-Formatted Tags - " + ",".join(illFormattedValueList)) 
+
+                ## Determine whether any values missing from current list
+                missingValueList = []
+                for value in baseOutputValueList:
+                    if value not in curOutputValueList:
+                        missingValueList.append(value)
+                if missingValueList != []:
+                    mismatchTypes.append("Missing Values - " + ",".join(missingValueList))
+
+                ## Determine whether extra values have been added in current list
+                extraValueList = []
+                for value in curOutputValueList:
+                    if value not in baseOutputValueList:
+                        extraValueList.append(value)
+                if extraValueList != []:
+                    mismatchTypes.append("Extra Values - " + ",".join(extraValueList))
+
+                ## Determine if, after considering missing/extra values, there are sort issues
+                if not ignoreOrder and len(baseOutputValueList) != 0:
+                    baseListIndex = 0
+                    for value in curOutputValueList:
+                        if value not in extraValueList:
+                            while len(baseOutputValueList) > baseListIndex and baseOutputValueList[baseListIndex] in missingValueList:
+                                baseListIndex += 1
+                            if len(baseOutputValueList) > baseListIndex and value != baseOutputValueList[baseListIndex]:
+                                mismatchTypes.append("Out of Order")
+                                break 
+                            baseListIndex += 1
+
+                ## Determine whether there are any text formatting mismatches
+                if baseFormatDict != curFormatDict:
+                    formatDiffList = []
+                    for key in baseFormatDict.keys():
+                        keyDiff = curFormatDict[key] - baseFormatDict[key]
+                        if keyDiff != 0:
+                            formatDiffList.append("%s : %s" % (key, str(keyDiff) if keyDiff < 0 else "+" + str(keyDiff)))
+                    mismatchTypes.append("Text Formatting Mismatch - " + ",".join(formatDiffList))
+
+                if len(mismatchTypes) > 0:
+                    mismatchDict[colIdx] = (curOutputValueList, mismatchTypes)
+
                 if wsOut:
                     cellOut = getOutputCell(row[colIdx], wsOut)
-                    cellOut.style = mismatchFillStyle
+                    if len(mismatchTypes) == 1 and "Text Formatting Mismatch" in mismatchTypes[0]:
+                        curMismatchFillStyle = lesserMismatchFillStyle
+                    else:
+                        curMismatchFillStyle = mismatchFillStyle
+                    cellOut.style = curMismatchFillStyle
+                    if outputMismatchTypesFlag:
+                        mismatchTypesColIdx = appendColumnIfNotExist(wsOut, "mismatch_%s"%(columnDict[colIdx],))
+                        mismatchTypesCellOut = wsOut.rows[getOutputCell(row[0],wsOut).row-1][mismatchTypesColIdx]
+                        #mismatchTypesCellOut = getOutputCell(row[0], wsOut).row[mismatchTypesColIdx]
+                        mismatchTypesCellOut.value = ",".join(mismatchTypes)
+                        mismatchTypesCellOut.style = curMismatchFillStyle
+
         except AttributeError as e:
-            pass
+            print(e)
+        except Exception, e:
+            print("FATAL ERROR comparing to baseColumn worksheet %s cell %s : %s" % (row[colIdx].parent.title, row[colIdx].coordinate, str(e)))
+            tb.print_exc(e)
+            exit(-1)
 
     mismatchCell =wsOut.cell(row = getOutputCell(row[0], wsOut).row, column = 1).offset(column = mismatchFlagIdx)
     if len(mismatchDict) > 0:
+        curMismatchFillStyle = lesserMismatchFillStyle
+        for key in mismatchDict:
+            if len(mismatchDict[key][1]) > 1 or "Text Formatting Mismatch" not in mismatchDict[key][1][0]:
+                curMismatchFillStyle = mismatchFillStyle
         mismatchCell.value = "Y"
-        mismatchCell.style = mismatchFillStyle
+        mismatchCell.style = curMismatchFillStyle
     else:
         mismatchCell.value = "N"
 
     return (baseColumnDict, mismatchDict)
+
+def appendColumnIfNotExist(ws, columnHeader):
+    '''
+    Check whether a column with the given header already exists in ws, and append it if not.
+
+    Input:
+    ws (xl.worksheet.worksheet.worksheet): Worksheet to append column to
+    columnHeader (str): Header of new column
+
+    Output:
+    If column with columnHeader does not exist, append it to ws. Return index of column with columnHeader.
+    '''
+    maxHeaderIdx = 0
+    for headerIdx, cell in enumerate(ws.rows[0]):
+        if cell.value == columnHeader:
+            return headerIdx
+        maxHeaderIdx = max(headerIdx, maxHeaderIdx)
+    newColIdx = maxHeaderIdx + 1
+    ws.cell("A1").offset(column = newColIdx).value = columnHeader
+    return newColIdx
+
 
 
 def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose = False):
@@ -145,6 +298,7 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
     List of sheets that are missing from the Workbook. If configurationSheetColumnName does not exist in ws, returns None
     '''
     mismatchFillStyle = xl.styles.Style(fill = xl.styles.PatternFill(fgColor = xl.styles.colors.Color(xl.styles.colors.RED), fill_type = "solid"), alignment = xl.styles.Alignment(wrap_text = True))
+    missingSheetList = []
 
     ## Check that the configuration column exists at all
     colIdx = None
@@ -158,6 +312,7 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
     ## Iterate over configuration column, flagging red if corresponding sheet does not exist
     for cell in ws.columns[colIdx][1:]:
         if cell.value not in (sheet.title for sheet in wb):
+            missingSheetList.append(cell.value)
             getOutputCell(cell, wsOut).style = mismatchFillStyle
             if verbose:
                 print("WARNING %s: This sheet is missing from the workbook: " % (cell.value,))
@@ -170,7 +325,9 @@ def main(argv):
         if args.verbose:
             print("Workbook Loaded")
     except xl.exceptions.InvalidFileException as e:
-        print("Invalid File!")
+        print("Invalid File: %s" % (str(e),))
+        if args.debugMode:
+            tb.print_exc(e)
         exit(-1)
 
     ## Open new Workbook
@@ -179,67 +336,77 @@ def main(argv):
 
     ## Summary lists
     wsMismatchDict = {}
+    wbMissingSheets = []
 
     ## Iterate through WorkSheets
     for ws in wb:
-        wbOut.create_sheet(title = ws.title)
-        wsOut = wbOut[ws.title]
+        try:
+            wbOut.create_sheet(title = ws.title)
+            wsOut = wbOut[ws.title]
 
 
-        ## Dictionary mapping column index to column name
-        defaultColumnDict = {}
+            ## Dictionaries mapping column index to column name
+            defaultColumnDict = {}
+            mismatchTypesColumnDict = {}
 
-        maxHeaderIdx = 0
-        ## Find all columns of format "default_[CODE]"
-        for headerIdx, cell in enumerate(ws.rows[0]):
-            ## First, copy cell into new workbook
-            cellOut = createOutputCell(cell, wsOut)
-            if args.columns:
-                if cell.value in args.columns:
+            maxHeaderIdx = 0
+            ## Find all columns of format "default_[CODE]"
+            for headerIdx, cell in enumerate(ws.rows[0]):
+                ## First, copy cell into new workbook
+                cellOut = createOutputCell(cell, wsOut)
+                if args.columns:
+                    if cell.value in args.columns:
+                        defaultColumnDict[headerIdx] = cell.value
+                elif cell.value and cell.value[:8] == "default_":
                     defaultColumnDict[headerIdx] = cell.value
-            elif cell.value and cell.value[:8] == "default_":
-                defaultColumnDict[headerIdx] = cell.value
-            if headerIdx > maxHeaderIdx:
-                maxHeaderIdx = headerIdx
-        ## If defaultColumnDict is empty, skip processing
-        ## Otherwise, reate header cell in wsOut for mismatchFlag
-        if len(defaultColumnDict) != 0:
-            mismatchFlagIdx = maxHeaderIdx + 1
-            wsOut.cell("A1").offset(column = mismatchFlagIdx).value = "mismatchFlag"
+                if headerIdx > maxHeaderIdx:
+                    maxHeaderIdx = headerIdx
+            ## If defaultColumnDict is empty, skip processing
+            ## Otherwise, create header cell in wsOut for mismatchFlag
+            if len(defaultColumnDict) != 0:
+                mismatchFlagIdx = appendColumnIfNotExist(wsOut, "mismatchFlag")
 
 
-            for rowIdx, row in enumerate(ws.rows[1:]):
-                ## First, copy every cell into new workbook
-                for cell in row:
-                    cellOut = createOutputCell(cell, wsOut)
+                for rowIdx, row in enumerate(ws.rows[1:]):
+                    ## First, copy every cell into new workbook
+                    for cell in row:
+                        cellOut = createOutputCell(cell, wsOut)
 
-                ## Fetch baseColumn information
-                baseColumnIdx = None
-                if args.baseColumn:
-                    for colIdx in defaultColumnDict.keys():
-                        if defaultColumnDict[colIdx] == args.baseColumn:
-                            baseColumnIdx = colIdx 
+                    ## Fetch baseColumn information
+                    baseColumnIdx = None
+                    if args.baseColumn:
+                        for colIdx in defaultColumnDict.keys():
+                            if defaultColumnDict[colIdx] == args.baseColumn:
+                                baseColumnIdx = colIdx 
 
-                ## Check row for mismatch and print results
-                rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx, args.ignoreOrder, wsOut, mismatchFlagIdx)
-                if len(rowCheckResults[1]) > 0:
-                    if ws.title not in wsMismatchDict.keys():
-                        wsMismatchDict[ws.title] = 1
-                    else:
-                        wsMismatchDict[ws.title] += 1
-                    if args.verbose:
-                        baseColumnName = defaultColumnDict[list(rowCheckResults[0].keys())[0]]
-                        mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
-                        print("WARNING %s row %s: the output values in %s do not match %s" % (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName))
-        elif args.verbose:
-            print("WARNING %s: No columns found for comparison" % (ws.title,))
+                    ## Check row for mismatch and print results
+                    rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx, args.ignoreOrder, wsOut, mismatchFlagIdx, args.outputMismatchTypesFlag, args.formatCheckFlag, args.formatCheckCharactersAdd, args.formatCheckCharacters)
+                    if len(rowCheckResults[1]) > 0:
+                        if ws.title not in wsMismatchDict.keys():
+                            wsMismatchDict[ws.title] = 1
+                        else:
+                            wsMismatchDict[ws.title] += 1
+                        if args.verbose:
+                            baseColumnName = defaultColumnDict[list(rowCheckResults[0].keys())[0]]
+                            if args.outputMismatchTypesFlag:
+                                mismatchColumnNames = ",".join("%s (%s)" % (defaultColumnDict[i], ",".join(rowCheckResults[1][i][1])) for i in rowCheckResults[1].keys())
+                            else:
+                                mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
+                            print("WARNING %s row %s: the output values in %s do not match %s" % (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName))
+            elif args.verbose:
+                print("WARNING %s: No columns found for comparison" % (ws.title,))
 
-        ## If ws is a configuration sheet, run the configuration check
-        if ws.title == args.configurationSheet:
-            checkConfigurationSheet(wb, ws, args.configurationSheetColumnName, wsOut, args.verbose)
+            ## If ws is a configuration sheet, run the configuration check
+            if ws.title == args.configurationSheet:
+                wbMissingSheets = checkConfigurationSheet(wb, ws, args.configurationSheetColumnName, wsOut, args.verbose)
+        except Exception, e:
+            print("FATAL ERROR in worksheet %s : %s" % (ws.title, str(e)))
+            if args.debugMode:
+                tb.print_exc(e)
+            exit(-1)
 
     ## Save workbook and print summary
-    if len(wsMismatchDict) > 0:
+    if len(wsMismatchDict) > 0 or wbMissingSheets is None or len(wbMissingSheets) > 0:
         if args.createOutputFileFlag:
             tsString = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             fileBasename = os.path.splitext(os.path.basename(args.file))[0]
@@ -252,7 +419,9 @@ def main(argv):
                     print("Output directory did not exist, created %s" % (os.path.dirname(outputFileName),))
                 except OSError as e:
                     if e.errorno != e.EEXIST:
-                        raise e
+                        print("ERROR CREATING OUTPUT DIRECTORY : %s" % (str(e),))
+                        if args.debugMode:
+                            tb.print_exc(e)
             wbOut.save(outputFileName)
             print("There were issues with the following worksheets, see %s for details:" % (outputFileName,))
         else:
