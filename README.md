@@ -45,16 +45,22 @@ $ CommcareTranslationChecker    --file <relative or absolute path to translation
                                 --ignore-order \
                                 --verbose \
                                 --no-output-file \
-                                --configuration-sheet \ <name of sheet containing meta information about other sheets in the workbook>
-                                --configuration-sheet-column \ <name of column in configuration-sheet containing expected sheet titles>
+                                --configuration-sheet <name of sheet containing meta information about other sheets in the workbook> \
+                                --configuration-sheet-column <name of column in configuration-sheet containing expected sheet titles> \
+                                --output-mismatch-types \
+                                --format-check \
+                                --format-check-characters <sequence of characters whose counts will be compared by format check> \
+                                --format-check-characters-add <sequence of characters to add to the current format check character list> \
 
                                 
 ```
 
-The three options that do not include an input parameter are described below:
+The five options that do not include an input parameter are described below:
 * **--ignore-order** If passed, the order in which output value tags appear will not be considered when comparing cells against each other. This is useful if the order of the output value tags is different between columns because of differences in word orders between the languages involved.
 * **--verbose** If passed, output will be printed to the screen pointing out which rows of the file have issues.
 * **--no-output-file** If passed, no output file will be created.
+* **--output-mismatch-types** If passed, will include further information about the mismatch in the output. If an output file is generated, this information will be appended as an additional column on each sheet for each language column that contains an error. If the **--verbose** flag is passed, this information will be added to each line of output.
+* **--format-check** If passed, will add an additional check to compare the count of any special characters between columns. The default character list is ~`!@#$%^&*()_-+={[}]|\\:;\"'<,>.?/
 
 See `CommcareTranslationChecker --help` for the full list of options.
 
