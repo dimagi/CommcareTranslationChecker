@@ -59,7 +59,7 @@ def convertCellToOutputValueList(cell):
                 outputList.append("ILL-FORMATTED TAG : " + outputValue)
     except TypeError as e:
         return []
-    except Exception, e:
+    except Exception as e:
         print("FATAL ERROR determining output values for worksheet %s cell %s : %s" % (cell.parent.title, cell.coordinate, str(e)))
         exit(-1)
 
@@ -81,7 +81,7 @@ def createOutputCell(cell, wsOut):
         newCell.value = cell.value
         newCell.style = xl.styles.Style(alignment = xl.styles.Alignment(wrap_text = True))
         return newCell
-    except Exception, e:
+    except Exception as e:
         print("FATAL ERROR creating output cell for worksheet %s cell %s (writing to output worksheet %s) : %s" % (cell.parent.title, cell.coordinate, wsOut.title, str(e)))
         exit(-1)
 
@@ -243,7 +243,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
 
         except AttributeError as e:
             print(e)
-        except Exception, e:
+        except Exception as e:
             print("FATAL ERROR comparing to baseColumn worksheet %s cell %s : %s" % (row[colIdx].parent.title, row[colIdx].coordinate, str(e)))
             tb.print_exc(e)
             exit(-1)
@@ -297,6 +297,7 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
     Output:
     List of sheets that are missing from the Workbook. If configurationSheetColumnName does not exist in ws, returns None
     '''
+
     mismatchFillStyle = xl.styles.Style(fill = xl.styles.PatternFill(fgColor = xl.styles.colors.Color(xl.styles.colors.RED), fill_type = "solid"), alignment = xl.styles.Alignment(wrap_text = True))
     missingSheetList = []
 
@@ -399,7 +400,7 @@ def main(argv):
             ## If ws is a configuration sheet, run the configuration check
             if ws.title == args.configurationSheet:
                 wbMissingSheets = checkConfigurationSheet(wb, ws, args.configurationSheetColumnName, wsOut, args.verbose)
-        except Exception, e:
+        except Exception as e:
             print("FATAL ERROR in worksheet %s : %s" % (ws.title, str(e)))
             if args.debugMode:
                 tb.print_exc(e)
