@@ -408,7 +408,7 @@ def main(argv):
             exit(-1)
 
     ## Save workbook and print summary
-    if len(wsMismatchDict) > 0 or wbMissingSheets is None or len(wbMissingSheets) > 0:
+    if len(wsMismatchDict) > 0 or (wbMissingSheets is not None and len(wbMissingSheets) > 0):
         if args.createOutputFileFlag:
             tsString = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             fileBasename = os.path.splitext(os.path.basename(args.file))[0]
@@ -428,8 +428,9 @@ def main(argv):
             print("There were issues with the following worksheets, see %s for details:" % (outputFileName,))
         else:
             print("There were issues with the following worksheets:")
-        for sheet in wbMissingSheets:
-            print("%s is missing from the workbook." % (sheet,))
+        if wbMissingSheets is not None:
+            for sheet in wbMissingSheets:
+                print("%s is missing from the workbook." % (sheet,))
         for key in wsMismatchDict.keys():
             print("%s : %s row%s mismatched" % (key, wsMismatchDict[key], "" if wsMismatchDict[key]==1 else "s"))
 
