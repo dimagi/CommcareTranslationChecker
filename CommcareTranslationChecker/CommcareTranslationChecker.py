@@ -316,7 +316,9 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
             missingSheetList.append(cell.value)
             getOutputCell(cell, wsOut).style = mismatchFillStyle
             if verbose:
-                print("WARNING %s: This sheet is missing from the workbook: " % (cell.value,))
+                print("WARNING: This sheet is missing from the workbook: %s" % (cell.value,))
+
+    return missingSheetList
 
 
 def main(argv):
@@ -427,6 +429,8 @@ def main(argv):
             print("There were issues with the following worksheets, see %s for details:" % (outputFileName,))
         else:
             print("There were issues with the following worksheets:")
+        for sheet in wbMissingSheets:
+            print("%s is missing from the workbook." % (sheet,))
         for key in wsMismatchDict.keys():
             print("%s : %s row%s mismatched" % (key, wsMismatchDict[key], "" if wsMismatchDict[key]==1 else "s"))
 
