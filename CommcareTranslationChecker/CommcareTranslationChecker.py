@@ -129,7 +129,7 @@ def getNonLinguisticCharacterCount(val, additionalCharactersToCatch = None, char
     return charCountDict
 
 
-def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = False, wsOut = None, mismatchFlagIdx = None, outputMismatchTypesFlag = False, formatCheckFlag = False, formatCheckCharacters = None, formatCheckCharactersAdd = None):
+def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = False, wsOut = None, mismatchFlagIdx = None, outputMismatchTypesFlag = False, formatCheckFlag = False, formatCheckCharacters = None, formatCheckCharactersAdd = None, verbose=False):
     '''
     Check all of the given columns in a row provided for any mismatch in the columns' OutputValueList 
 
@@ -324,17 +324,23 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
     return missingSheetList
 
 
-def main(argv):
-    args = parseArguments()
-    try:
-        wb = xl.load_workbook(args.file)
-        if args.verbose:
-            print("Workbook Loaded")
-    except xl.exceptions.InvalidFileException as e:
-        print("Invalid File: %s" % (str(e),))
-        if args.debugMode:
-            tb.print_exc(e)
-        exit(-1)
+def validate_workbook(file, args=None):
+    verbose = args.verbose if args else False
+    wb = xl.load_workbook(file)
+    if verbose:
+        print("Workbook Loaded")
+    columns = args.columns if args else None
+    baseColumn = args.baseColumn if args else None
+    ignoreOrder = args.ignoreOrder if args else False
+    outputMismatchTypesFlag = args.outputMismatchTypesFlag if args else False
+    formatCheckFlag = args.formatCheckFlag if args else False
+    formatCheckCharactersAdd = args.formatCheckCharactersAdd if args else None
+    formatCheckCharacters = args.formatCheckCharacters if args else None
+    configurationSheet = args.configurationSheet if args else 'Modules_and_forms'
+    configurationSheetColumnName = args.configurationSheetColumnName if args else 'sheet_name'
+    createOutputFileFlag = args.createOutputFileFlag if args else True
+    debugMode = args.debugMode if args else False
+    outputFolder = args.outputFolder if args else 'commcareTranslationChecker_Output'
 
     ## Open new Workbook
     wbOut = xl.Workbook()
@@ -360,8 +366,8 @@ def main(argv):
             for headerIdx, cell in enumerate(ws.rows[0]):
                 ## First, copy cell into new workbook
                 cellOut = createOutputCell(cell, wsOut)
-                if args.columns:
-                    if cell.value in args.columns:
+                if columns:
+                    if cell.value in columns:
                         defaultColumnDict[headerIdx] = cell.value
                 elif cell.value and cell.value[:8] == "default_":
                     defaultColumnDict[headerIdx] = cell.value
@@ -380,43 +386,43 @@ def main(argv):
 
                     ## Fetch baseColumn information
                     baseColumnIdx = None
-                    if args.baseColumn:
+                    if baseColumn:
                         for colIdx in defaultColumnDict.keys():
-                            if defaultColumnDict[colIdx] == args.baseColumn:
+                            if defaultColumnDict[colIdx] == baseColumn:
                                 baseColumnIdx = colIdx 
 
                     ## Check row for mismatch and print results
-                    rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx, args.ignoreOrder, wsOut, mismatchFlagIdx, args.outputMismatchTypesFlag, args.formatCheckFlag, args.formatCheckCharactersAdd, args.formatCheckCharacters)
+                    rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx, ignoreOrder, wsOut, mismatchFlagIdx, outputMismatchTypesFlag, formatCheckFlag, formatCheckCharactersAdd, formatCheckCharacters, verbose)
                     if len(rowCheckResults[1]) > 0:
                         if ws.title not in wsMismatchDict.keys():
                             wsMismatchDict[ws.title] = 1
                         else:
                             wsMismatchDict[ws.title] += 1
-                        if args.verbose:
+                        if verbose:
                             baseColumnName = defaultColumnDict[list(rowCheckResults[0].keys())[0]]
-                            if args.outputMismatchTypesFlag:
+                            if outputMismatchTypesFlag:
                                 mismatchColumnNames = ",".join("%s (%s)" % (defaultColumnDict[i], ",".join(rowCheckResults[1][i][1])) for i in rowCheckResults[1].keys())
                             else:
                                 mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
                             print("WARNING %s row %s: the output values in %s do not match %s" % (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName))
-            elif args.verbose:
+            elif verbose:
                 print("WARNING %s: No columns found for comparison" % (ws.title,))
 
             ## If ws is a configuration sheet, run the configuration check
-            if ws.title == args.configurationSheet:
-                wbMissingSheets = checkConfigurationSheet(wb, ws, args.configurationSheetColumnName, wsOut, args.verbose)
+            if ws.title == configurationSheet:
+                wbMissingSheets = checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose)
         except Exception as e:
             print("FATAL ERROR in worksheet %s : %s" % (ws.title, str(e)))
-            if args.debugMode:
+            if debugMode:
                 tb.print_exc(e)
             exit(-1)
 
     ## Save workbook and print summary
     if len(wsMismatchDict) > 0 or (wbMissingSheets is not None and len(wbMissingSheets) > 0):
-        if args.createOutputFileFlag:
+        if args and createOutputFileFlag:
             tsString = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            fileBasename = os.path.splitext(os.path.basename(args.file))[0]
-            outputFolder = args.outputFolder
+            fileBasename = os.path.splitext(os.path.basename(file))[0]
+            outputFolder = outputFolder
             outputFileName = os.path.join(outputFolder,"%s_%s_Output.xlsx" % (fileBasename, tsString))
             ## Create the output directory if it does not exist
             if not os.path.exists(os.path.dirname(outputFileName)):
@@ -426,7 +432,7 @@ def main(argv):
                 except OSError as e:
                     if e.errorno != e.EEXIST:
                         print("ERROR CREATING OUTPUT DIRECTORY : %s" % (str(e),))
-                        if args.debugMode:
+                        if debugMode:
                             tb.print_exc(e)
             wbOut.save(outputFileName)
             print("There were issues with the following worksheets, see %s for details:" % (outputFileName,))
@@ -437,6 +443,24 @@ def main(argv):
                 print("%s is missing from the workbook." % (sheet,))
         for key in wsMismatchDict.keys():
             print("%s : %s row%s mismatched" % (key, wsMismatchDict[key], "" if wsMismatchDict[key]==1 else "s"))
+
+
+def main(argv):
+    args = parseArguments()
+    try:
+        messages = validate_workbook(args.file, args)
+    except xl.exceptions.InvalidFileException as e:
+        print("Invalid File: %s" % (str(e),))
+        if args.debugMode:
+            tb.print_exc(e)
+        exit(-1)
+    except FatalError as e:
+        print(e.message)
+        exit(-1)
+    else:
+        for message in messages:
+            print(message)
+
 
 def entryPoint():
     main(sys.argv[1:])
