@@ -41,6 +41,7 @@ def convertCellToOutputValueList(cell):
     Output:
     List of unicode objects, each representing an instance of <output value...> in cell. Any of these values that appear suspicious will be prepended with "ILL-FORMATTED TAG : "
     '''
+    messages = []
     openTag = "<output value=\""
     closeTag ="\"/>"
     outputList = []
@@ -57,7 +58,7 @@ def convertCellToOutputValueList(cell):
                     outputList.append("ILL-FORMATTED TAG : " + outputValue)
             else:
                 outputValue = cell.value[currentIndex:]
-                print("closeTag not found for " + outputValue)
+                messages.append("closeTag not found for " + outputValue)
                 outputList.append("ILL-FORMATTED TAG : " + outputValue)
     except TypeError as e:
         return []
@@ -65,7 +66,8 @@ def convertCellToOutputValueList(cell):
         print("FATAL ERROR determining output values for worksheet %s cell %s : %s" % (cell.parent.title, cell.coordinate, str(e)))
         exit(-1)
 
-    return outputList
+    return outputList, messages
+
 
 def createOutputCell(cell, wsOut):
     '''
@@ -146,6 +148,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
     Output:
     Tuple consisting of a single-element dictionary mapping the baseColumn's index to its outputValueList, and a dictionary mapping the column indexes of mismatched cells to a tuple consisting of the associated cell's OutputValueList and a list of mismatchTypes. wsOut altered so that every Cell that is mismatched is filled with Red, and mismatchFlag column filled with "Y" if there was a mismatch in the row, "N" otherwise.
     '''
+    messages = []
     mismatchDict = {}
     baseColumnDict=  {}
     baseFormatDict = {}
@@ -161,7 +164,8 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
     ## Build baseColumnDict
     if baseColumnIdx is None:
         baseColumnIdx = sorted(columnDictKeyList)[0]
-    baseOutputValueList = convertCellToOutputValueList(row[baseColumnIdx])
+    baseOutputValueList, error_messages = convertCellToOutputValueList(row[baseColumnIdx])
+    messages.extend(error_messages)
     if ignoreOrder:
         baseOutputValueList = sorted(baseOutputValueList)
     baseColumnDict = {baseColumnIdx : baseOutputValueList}
@@ -172,7 +176,8 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
 
     for colIdx in columnDictKeyList:
         try:
-            curOutputValueList = convertCellToOutputValueList(row[colIdx])
+            curOutputValueList, error_messages = convertCellToOutputValueList(row[colIdx])
+            messages.extend(error_messages)
             if ignoreOrder:
                 curOutputValueList = sorted(curOutputValueList)
             curFormatDict = {}
@@ -245,7 +250,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                         mismatchTypesCellOut.style = curMismatchFillStyle
 
         except AttributeError as e:
-            print(e)
+            messages.append(str(e))
         except Exception as e:
             print("FATAL ERROR comparing to baseColumn worksheet %s cell %s : %s" % (row[colIdx].parent.title, row[colIdx].coordinate, str(e)))
             tb.print_exc(e)
@@ -300,7 +305,7 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
     Output:
     List of sheets that are missing from the Workbook. If configurationSheetColumnName does not exist in ws, returns None
     '''
-
+    messages = []
     mismatchFillStyle = xl.styles.Style(fill = xl.styles.PatternFill(fgColor = xl.styles.colors.Color(xl.styles.colors.RED), fill_type = "solid"), alignment = xl.styles.Alignment(wrap_text = True))
     missingSheetList = []
 
@@ -310,7 +315,7 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
         if cell.value == configurationSheetColumnName:
             colIdx = headerIdx
     if colIdx == None:
-        print(configurationSheetColumnName, " not found in ", ws.title, ". Skipping sheet check.")
+        messages.append("%s not found in %s. Skipping sheet check." % (configurationSheetColumnName, ws.title))
         return None
 
     ## Iterate over configuration column, flagging red if corresponding sheet does not exist
@@ -325,6 +330,7 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
 
 
 def validate_workbook(file, args=None):
+    messages = []
     verbose = args.verbose if args else False
     wb = xl.load_workbook(file)
     if verbose:
@@ -428,21 +434,22 @@ def validate_workbook(file, args=None):
             if not os.path.exists(os.path.dirname(outputFileName)):
                 try:
                     os.makedirs(os.path.dirname(outputFileName),)
-                    print("Output directory did not exist, created %s" % (os.path.dirname(outputFileName),))
+                    messages.append("Output directory did not exist, created %s" % (os.path.dirname(outputFileName),))
                 except OSError as e:
                     if e.errorno != e.EEXIST:
-                        print("ERROR CREATING OUTPUT DIRECTORY : %s" % (str(e),))
+                        messages.append("ERROR CREATING OUTPUT DIRECTORY : %s" % (str(e),))
                         if debugMode:
                             tb.print_exc(e)
             wbOut.save(outputFileName)
-            print("There were issues with the following worksheets, see %s for details:" % (outputFileName,))
+            messages.append("There were issues with the following worksheets, see %s for details:" % (outputFileName,))
         else:
-            print("There were issues with the following worksheets:")
+            messages.append("There were issues with the following worksheets:")
         if wbMissingSheets is not None:
             for sheet in wbMissingSheets:
-                print("%s is missing from the workbook." % (sheet,))
+                messages.append("%s is missing from the workbook." % (sheet,))
         for key in wsMismatchDict.keys():
-            print("%s : %s row%s mismatched" % (key, wsMismatchDict[key], "" if wsMismatchDict[key]==1 else "s"))
+            messages.append("%s : %s row%s mismatched" % (key, wsMismatchDict[key], "" if wsMismatchDict[key]==1 else "s"))
+    return messages
 
 
 def main(argv):
