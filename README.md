@@ -33,6 +33,21 @@ If the translation file contains a sheet called Modules_and_forms, with a column
 After the file has been created, a summary will be printed outlining how many rows were found to have discrepancies per sheet.
 
 
+Use via import
+------------------------
+```
+>>> from CommcareTranslationChecker import validate_workbook
+>>> messages = []
+>>> validate_workbook("examples/TranslationCheckerTest_BulkAppTranslation.xlsx", messages)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "CommcareTranslationChecker/CommcareTranslationChecker.py", line 448, in validate_workbook
+    raise FatalError("FATAL ERROR in worksheet")
+CommcareTranslationChecker.exceptions.FatalError: FATAL ERROR in worksheet
+>>> messages
+['There were issues with the following worksheets:', u'moduleX_formY is missing from the workbook.']
+```
+
 Advanced Command-line Usage
 ---------------------------
 In addition to the basic usage outlined, there are a number of optional parameters that will provide a more customized experience.
