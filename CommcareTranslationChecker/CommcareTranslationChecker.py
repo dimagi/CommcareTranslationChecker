@@ -329,8 +329,7 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
     return missingSheetList
 
 
-def validate_workbook(file, args=None):
-    messages = []
+def validate_workbook(file, messages, args=None):
     verbose = args.verbose if args else False
     wb = xl.load_workbook(file)
     if verbose:
@@ -453,19 +452,18 @@ def validate_workbook(file, args=None):
 
 def main(argv):
     args = parseArguments()
+    messages = []
     try:
-        messages = validate_workbook(args.file, args)
+        validate_workbook(args.file, messages, args)
     except xl.exceptions.InvalidFileException as e:
         print("Invalid File: %s" % (str(e),))
         if args.debugMode:
             tb.print_exc(e)
         exit(-1)
     except FatalError as e:
-        print(e.message)
-        exit(-1)
-    else:
-        for message in messages:
-            print(message)
+        print("The process could not be completed. %s" % e.message)
+    for message in messages:
+        print(message)
 
 
 def entryPoint():
