@@ -11,6 +11,7 @@ NON_LINGUISTIC_CHARACTERS = "~`!@#$%^&*()_-+={[}]|\\:;\"'<,>.?/"
 
 ##### DEFINE METHODS #####
 
+
 def parseArguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--file", help="Location of Translation file to check", type=str, required = True)
@@ -28,6 +29,7 @@ def parseArguments():
     parser.add_argument("--format-check-characters-add", help = "[Opt] A list of characters to be added to the default or passed format-check-characters list. The characters \\ and \" need to be escaped as \\\\ and \\\". Defaults to None.", type=str, default = None, dest = "formatCheckCharactersAdd")
     parser.add_argument("--debug-mode", "-d", action="store_true", default=False, dest="debugMode")
     return parser.parse_args()
+
 
 def convertCellToOutputValueList(cell):
     '''
@@ -98,6 +100,7 @@ def getOutputCell(cell, wsOut):
     '''
 
     return wsOut[cell.coordinate]
+
 
 def getNonLinguisticCharacterCount(val, additionalCharactersToCatch = None, characterList = None):
     '''
@@ -261,6 +264,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
 
     return (baseColumnDict, mismatchDict)
 
+
 def appendColumnIfNotExist(ws, columnHeader):
     '''
     Check whether a column with the given header already exists in ws, and append it if not.
@@ -280,7 +284,6 @@ def appendColumnIfNotExist(ws, columnHeader):
     newColIdx = maxHeaderIdx + 1
     ws.cell("A1").offset(column = newColIdx).value = columnHeader
     return newColIdx
-
 
 
 def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose = False):
@@ -437,6 +440,7 @@ def main(argv):
 
 def entryPoint():
     main(sys.argv[1:])
+
 
 if __name__ == "__main__":
     entryPoint()
