@@ -419,7 +419,7 @@ def validate_workbook(file, messages, args=None):
         except Exception as e:
             if debugMode:
                 tb.print_exc(e)
-                raise FatalError("FATAL ERROR in worksheet %s : %s" % (ws.title, str(e)))
+            raise FatalError("FATAL ERROR in worksheet %s : %s" % (ws.title, str(e)))
 
     ## Save workbook and print summary
     if len(wsMismatchDict) > 0 or (wbMissingSheets is not None and len(wbMissingSheets) > 0):
