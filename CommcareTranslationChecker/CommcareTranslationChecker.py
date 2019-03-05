@@ -447,7 +447,6 @@ def validate_workbook(file, messages, args=None):
                 messages.append("%s is missing from the workbook." % (sheet,))
         for key in wsMismatchDict.keys():
             messages.append("%s : %s row%s mismatched" % (key, wsMismatchDict[key], "" if wsMismatchDict[key]==1 else "s"))
-    return messages
 
 
 def main(argv):
