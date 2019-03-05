@@ -5,6 +5,7 @@ import datetime
 import argparse
 import traceback as tb
 import openpyxl as xl
+from .exceptions import FatalError
 
 ##### DEFINE GLOBALS #####
 NON_LINGUISTIC_CHARACTERS = "~`!@#$%^&*()_-+={[}]|\\:;\"'<,>.?/"
@@ -63,8 +64,7 @@ def convertCellToOutputValueList(cell):
     except TypeError as e:
         return []
     except Exception as e:
-        print("FATAL ERROR determining output values for worksheet %s cell %s : %s" % (cell.parent.title, cell.coordinate, str(e)))
-        exit(-1)
+        raise FatalError("FATAL ERROR determining output values for worksheet %s cell %s : %s" % (cell.parent.title, cell.coordinate, str(e)))
 
     return outputList, messages
 
@@ -86,8 +86,8 @@ def createOutputCell(cell, wsOut):
         newCell.style = xl.styles.Style(alignment = xl.styles.Alignment(wrap_text = True))
         return newCell
     except Exception as e:
-        print("FATAL ERROR creating output cell for worksheet %s cell %s (writing to output worksheet %s) : %s" % (cell.parent.title, cell.coordinate, wsOut.title, str(e)))
-        exit(-1)
+        raise FatalError("FATAL ERROR creating output cell for worksheet %s cell %s (writing to output worksheet %s) : %s" % (cell.parent.title, cell.coordinate, wsOut.title, str(e)))
+
 
 def getOutputCell(cell, wsOut):
     '''
@@ -252,9 +252,9 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
         except AttributeError as e:
             messages.append(str(e))
         except Exception as e:
-            print("FATAL ERROR comparing to baseColumn worksheet %s cell %s : %s" % (row[colIdx].parent.title, row[colIdx].coordinate, str(e)))
-            tb.print_exc(e)
-            exit(-1)
+            if verbose:
+                tb.print_exc(e)
+            raise FatalError("FATAL ERROR comparing to baseColumn worksheet %s cell %s : %s" % (row[colIdx].parent.title, row[colIdx].coordinate, str(e)))
 
     mismatchCell =wsOut.cell(row = getOutputCell(row[0], wsOut).row, column = 1).offset(column = mismatchFlagIdx)
     if len(mismatchDict) > 0:
@@ -418,10 +418,9 @@ def validate_workbook(file, args=None):
             if ws.title == configurationSheet:
                 wbMissingSheets = checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose)
         except Exception as e:
-            print("FATAL ERROR in worksheet %s : %s" % (ws.title, str(e)))
             if debugMode:
                 tb.print_exc(e)
-            exit(-1)
+                raise FatalError("FATAL ERROR in worksheet %s : %s" % (ws.title, str(e)))
 
     ## Save workbook and print summary
     if len(wsMismatchDict) > 0 or (wbMissingSheets is not None and len(wbMissingSheets) > 0):
