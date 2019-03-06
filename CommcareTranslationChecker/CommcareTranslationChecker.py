@@ -341,11 +341,10 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
     return missingSheetList
 
 
-def validate_workbook(file, messages, args=None):
+def validate_workbook(wb, messages, args=None):
+    if not wb:
+        return
     verbose = args.verbose if args else False
-    wb = xl.load_workbook(file)
-    if verbose:
-        print("Workbook Loaded")
     columns = args.columns if args else None
     baseColumn = args.baseColumn if args else None
     ignoreOrder = args.ignoreOrder if args else False
@@ -466,13 +465,18 @@ def validate_workbook(file, messages, args=None):
 def main(argv):
     args = parseArguments()
     messages = []
+    wb = None
     try:
-        validate_workbook(args.file, messages, args)
-    except xl.exceptions.InvalidFileException as e:
+        wb = xl.load_workbook(args.file)
+        if args.verbose:
+            print("Workbook Loaded")
+    except xl.utils.exceptions.InvalidFileException as e:
         print("Invalid File: %s" % (str(e),))
         if args.debugMode:
             tb.print_exc(e)
         exit(-1)
+    try:
+        validate_workbook(wb, messages, args)
     except FatalError as e:
         print("The process could not be completed. %s" % e.message)
     for message in messages:
