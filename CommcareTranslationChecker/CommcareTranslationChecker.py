@@ -17,19 +17,58 @@ LESSER_MISMATCH_FILL_STYLE_NAME = "lesserMismatchFillStyle"
 
 def parseArguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--file", help="Location of Translation file to check", type=str, required = True)
-    parser.add_argument("--columns", help="[Opt] Comma-separated list of column names to check. By default, all columns that start with 'default_' will be checked.", type=str, default=None)
-    parser.add_argument("--base-column", help="[Opt] Name of column that others are to be compared against. Warnings are flagged for all columns that do not match the base-column. Defaults to leftmost column in columns.", type=str, default=None, dest='baseColumn')
-    parser.add_argument("--ignore-order", help="[Opt] If passed, the order in which output value tags appear will not be considered when comparing cells against each other. This is useful if the order of the output value tags is different between columns because of differences in word orders between the languages involved.", action="store_true", default=False, dest='ignoreOrder')
-    parser.add_argument("-v", "--verbose",  help="[Opt] If passed, output will be printed to the screen pointing out which rows of the file have issues.", action="store_true", default = False)
-    parser.add_argument("--output-folder", help = "[Opt] Folder in which any output files should be passed. Defaults to 'commcareTranslationChecker_Output' folder relative to folder from which the script is called. Can be relative or absolute path.", type=str, default = "commcareTranslationChecker_Output", dest='outputFolder')
-    parser.add_argument("--no-output-file", help = "[Opt] If passed, no output file will be created.", action="store_false", default = True, dest = "createOutputFileFlag")
-    parser.add_argument("--configuration-sheet", help = "[Opt] Specify which sheet contains configuration information about modules and forms. Defaults to 'Modules_and_forms'", type=str, default = "Modules_and_forms", dest='configurationSheet')
-    parser.add_argument("--configuration-sheet-column", help = "[Opt] specify which column in the configuration sheet contains expected sheet names. Defaults to 'sheet_name'", type=str, default = "sheet_name", dest='configurationSheetColumnName')
-    parser.add_argument("--output-mismatch-types", help = "[Opt] If passed, information will be returned about the exact type of output value mismatch that occurs.", action="store_true", default = False, dest = "outputMismatchTypesFlag")
-    parser.add_argument("--format-check", help = "[Opt] If passed, text formatting will be checked as well as output values.", action = "store_true", default = False, dest = "formatCheckFlag")
-    parser.add_argument("--format-check-characters", help = "[Opt] A list of characters considered non-linguistic that will be counted when format-check is run. The characters \\ and \" need to be escaped as \\\\ and \\\". Defaults to CommcareTranslationChecker.NON_LINGUISTIC_CHARACTERS", type=str, default = None, dest = "formatCheckCharacters")
-    parser.add_argument("--format-check-characters-add", help = "[Opt] A list of characters to be added to the default or passed format-check-characters list. The characters \\ and \" need to be escaped as \\\\ and \\\". Defaults to None.", type=str, default = None, dest = "formatCheckCharactersAdd")
+    parser.add_argument("--file", help="Location of Translation file to check", type=str, required=True)
+    parser.add_argument("--columns",
+                        help="[Opt] Comma-separated list of column names to check. "
+                             "By default, all columns that start with 'default_' will be checked.",
+                        type=str, default=None)
+    parser.add_argument("--base-column",
+                        help="[Opt] Name of column that others are to be compared against. "
+                             "Warnings are flagged for all columns that do not match the base-column. "
+                             "Defaults to leftmost column in columns.",
+                        type=str, default=None, dest='baseColumn')
+    parser.add_argument("--ignore-order",
+                        help="[Opt] If passed, the order in which output value tags appear will not be considered "
+                             "when comparing cells against each other. "
+                             "This is useful if the order of the output value tags is different between columns "
+                             "because of differences in word orders between the languages involved.",
+                        action="store_true", default=False, dest='ignoreOrder')
+    parser.add_argument("-v", "--verbose",
+                        help="[Opt] If passed, output will be printed to the screen pointing out which rows of the "
+                             "file have issues.",
+                        action="store_true", default=False)
+    parser.add_argument("--output-folder",
+                        help="[Opt] Folder in which any output files should be passed. "
+                             "Defaults to 'commcareTranslationChecker_Output' folder relative to folder from which "
+                             "the script is called. Can be relative or absolute path.",
+                        type=str, default="commcareTranslationChecker_Output", dest='outputFolder')
+    parser.add_argument("--no-output-file",
+                        help="[Opt] If passed, no output file will be created.",
+                        action="store_false", default=True, dest="createOutputFileFlag")
+    parser.add_argument("--configuration-sheet",
+                        help="[Opt] Specify which sheet contains configuration information about modules and forms. "
+                             "Defaults to 'Modules_and_forms'",
+                        type=str, default="Modules_and_forms", dest='configurationSheet')
+    parser.add_argument("--configuration-sheet-column",
+                        help="[Opt] specify which column in the configuration sheet contains expected sheet names. "
+                             "Defaults to 'sheet_name'",
+                        type=str, default="sheet_name", dest='configurationSheetColumnName')
+    parser.add_argument("--output-mismatch-types",
+                        help="[Opt] If passed, information will be returned about the exact type of output value "
+                             "mismatch that occurs.",
+                        action="store_true", default=False, dest="outputMismatchTypesFlag")
+    parser.add_argument("--format-check",
+                        help="[Opt] If passed, text formatting will be checked as well as output values.",
+                        action="store_true", default=False, dest="formatCheckFlag")
+    parser.add_argument("--format-check-characters",
+                        help="[Opt] A list of characters considered non-linguistic that will be counted when "
+                             "format-check is run. The characters \\ and \" need to be escaped as \\\\ and \\\". "
+                             "Defaults to CommcareTranslationChecker.NON_LINGUISTIC_CHARACTERS",
+                        type=str, default=None, dest="formatCheckCharacters")
+    parser.add_argument("--format-check-characters-add",
+                        help="[Opt] A list of characters to be added to the default or passed format-check-characters "
+                             "list. The characters \\ and \" need to be escaped as \\\\ and \\\". Defaults to None.",
+                        type=str, default=None, dest="formatCheckCharactersAdd")
     parser.add_argument("--debug-mode", "-d", action="store_true", default=False, dest="debugMode")
     return parser.parse_args()
 
@@ -50,15 +89,16 @@ def register_styles(wb):
 
 
 def convertCellToOutputValueList(cell):
-    '''
+    """
     Convert an Excel cell to a list of <output value...> tags contained within the cell
 
     Input:
     cell (xl.cell.cell.Cell): Cell whose contents are to be parsed
 
     Output:
-    List of unicode objects, each representing an instance of <output value...> in cell. Any of these values that appear suspicious will be prepended with "ILL-FORMATTED TAG : "
-    '''
+    List of unicode objects, each representing an instance of <output value...> in cell.
+    Any of these values that appear suspicious will be prepended with "ILL-FORMATTED TAG : "
+    """
     messages = []
     openTag = "<output value=\""
     closeTag = "\"/>"
@@ -81,7 +121,8 @@ def convertCellToOutputValueList(cell):
     except TypeError:
         return []
     except Exception as e:
-        raise FatalError("FATAL ERROR determining output values for worksheet %s cell %s : %s" % (cell.parent.title, cell.coordinate, str(e)))
+        raise FatalError("FATAL ERROR determining output values for worksheet %s cell %s : %s" %
+                         (cell.parent.title, cell.coordinate, str(e)))
 
     return outputList, messages
 
@@ -103,7 +144,9 @@ def createOutputCell(cell, wsOut):
         newCell.alignment = xl.styles.Alignment(wrap_text=True)
         return newCell
     except Exception as e:
-        raise FatalError("FATAL ERROR creating output cell for worksheet %s cell %s (writing to output worksheet %s) : %s" % (cell.parent.title, cell.coordinate, wsOut.title, str(e)))
+        raise FatalError(
+            "FATAL ERROR creating output cell for worksheet %s cell %s (writing to output worksheet %s) : %s" %
+            (cell.parent.title, cell.coordinate, wsOut.title, str(e)))
 
 
 def getOutputCell(cell, wsOut):
@@ -123,12 +166,14 @@ def getOutputCell(cell, wsOut):
 
 def getNonLinguisticCharacterCount(val, additionalCharactersToCatch=None, characterList=None):
     """
-    Check a string for how many of each kind of non-linguistic character it contains and return a dictionary mapping character to count.
+    Check a string for how many of each kind of non-linguistic character it contains and
+    return a dictionary mapping character to count.
 
     Input:
     val(str): string to get counts from
     additionalCharactersToCatch(str [opt]): string of characters to append onto the characterList
-    characterList(str [opt]): string of characters considered non-linguistic. Defaults to CommcareTranslationChecker.NON_LINGUISTIC_CHARACTERS
+    characterList(str [opt]): string of characters considered non-linguistic.
+    Defaults to CommcareTranslationChecker.NON_LINGUISTIC_CHARACTERS
 
     Output:
     Dictionary mapping non-linguistic character to count of appearance in val 
@@ -148,22 +193,33 @@ def getNonLinguisticCharacterCount(val, additionalCharactersToCatch=None, charac
     return charCountDict
 
 
-def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, wsOut=None, mismatchFlagIdx=None, outputMismatchTypesFlag=False, formatCheckFlag=False, formatCheckCharacters=None, formatCheckCharactersAdd=None, verbose=False):
+def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, wsOut=None, mismatchFlagIdx=None,
+                        outputMismatchTypesFlag=False, formatCheckFlag=False, formatCheckCharacters=None,
+                        formatCheckCharactersAdd=None, verbose=False):
     """
     Check all of the given columns in a row provided for any mismatch in the columns' OutputValueList 
 
     Input:
     row(list): list of openyxl.cell.cell.Cell objects representing a single row in an Excel sheet 
-    columnDict(dict): dictionary mapping column index to column name, representing every column to be checked against the baseColumn 
-    baseColumnIdx(int [opt]): Index of the column to be considered "correct." Defaults to lowest-indexed column in columnDict.
-    ignoreOrder(bool [opt]): If True, the order in which output values appear will be ignored for purposes of comparing cells. Otherwise, the order will matter. Defaults to False.
-    wsOut(xl.worksheet.worksheet.Worksheet [opt]): Worksheet whose corresponding cell should be filled with Red if a mismatch occurs. Defaults to None.
+    columnDict(dict): dictionary mapping column index to column name,
+    representing every column to be checked against the baseColumn
+    baseColumnIdx(int [opt]): Index of the column to be considered "correct."
+    Defaults to lowest-indexed column in columnDict.
+    ignoreOrder(bool [opt]): If True, the order in which output values appear will be ignored for purposes of
+    comparing cells. Otherwise, the order will matter. Defaults to False.
+    wsOut(xl.worksheet.worksheet.Worksheet [opt]): Worksheet whose corresponding cell should be filled with Red
+    if a mismatch occurs. Defaults to None.
     mismatchFlagIdx(int [opt]): Column index where the mismatchFlag value should be printed in wsOut
-    outputMismatchTypesFlag(bool [opt]): Flag indicating whether to output the full mismatch types to the results file. Defaults to False
-    formatCheckFlag(bool [opt]): Flag indicating whether to check for bad text formatting outside of output value. Defaults to False
+    outputMismatchTypesFlag(bool [opt]): Flag indicating whether to output the full mismatch types to the results file.
+    Defaults to False
+    formatCheckFlag(bool [opt]): Flag indicating whether to check for bad text formatting outside of output value.
+    Defaults to False
 
     Output:
-    Tuple consisting of a single-element dictionary mapping the baseColumn's index to its outputValueList, and a dictionary mapping the column indexes of mismatched cells to a tuple consisting of the associated cell's OutputValueList and a list of mismatchTypes. wsOut altered so that every Cell that is mismatched is filled with Red, and mismatchFlag column filled with "Y" if there was a mismatch in the row, "N" otherwise.
+    Tuple consisting of a single-element dictionary mapping the baseColumn's index to its outputValueList,
+    and a dictionary mapping the column indexes of mismatched cells to a tuple consisting of the associated cell's
+    OutputValueList and a list of mismatchTypes. wsOut altered so that every Cell that is mismatched is filled with Red,
+    and mismatchFlag column filled with "Y" if there was a mismatch in the row, "N" otherwise.
     """
     messages = []
     mismatchDict = {}
@@ -185,7 +241,8 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
 
     # Build baseFormatDict if needed
     if formatCheckFlag:
-        baseFormatDict = getNonLinguisticCharacterCount(row[baseColumnIdx].value, formatCheckCharacters, formatCheckCharactersAdd)
+        baseFormatDict = getNonLinguisticCharacterCount(row[baseColumnIdx].value, formatCheckCharacters,
+                                                        formatCheckCharactersAdd)
 
     for colIdx in columnDictKeyList:
         try:
@@ -195,8 +252,10 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
                 curOutputValueList = sorted(curOutputValueList)
             curFormatDict = {}
             if formatCheckFlag:
-                curFormatDict = getNonLinguisticCharacterCount(row[colIdx].value, formatCheckCharacters, formatCheckCharactersAdd)
-            if colIdx != baseColumnIdx and (baseOutputValueList != curOutputValueList or baseFormatDict != curFormatDict):
+                curFormatDict = getNonLinguisticCharacterCount(row[colIdx].value, formatCheckCharacters,
+                                                               formatCheckCharactersAdd)
+            if (colIdx != baseColumnIdx and
+                    (baseOutputValueList != curOutputValueList or baseFormatDict != curFormatDict)):
                 # Determine how everything is mismatched
                 mismatchTypes = []
 
@@ -229,9 +288,11 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
                     baseListIndex = 0
                     for value in curOutputValueList:
                         if value not in extraValueList:
-                            while len(baseOutputValueList) > baseListIndex and baseOutputValueList[baseListIndex] in missingValueList:
+                            while (len(baseOutputValueList) > baseListIndex and
+                                           baseOutputValueList[baseListIndex] in missingValueList):
                                 baseListIndex += 1
-                            if len(baseOutputValueList) > baseListIndex and value != baseOutputValueList[baseListIndex]:
+                            if (len(baseOutputValueList) > baseListIndex and
+                                        value != baseOutputValueList[baseListIndex]):
                                 mismatchTypes.append("Out of Order")
                                 break 
                             baseListIndex += 1
@@ -242,7 +303,9 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
                     for key in baseFormatDict.keys():
                         keyDiff = curFormatDict[key] - baseFormatDict[key]
                         if keyDiff != 0:
-                            formatDiffList.append("%s : %s" % (key, str(keyDiff) if keyDiff < 0 else "+" + str(keyDiff)))
+                            formatDiffList.append("%s : %s" %
+                                                  (key,
+                                                   str(keyDiff) if keyDiff < 0 else "+" + str(keyDiff)))
                     mismatchTypes.append("Text Formatting Mismatch - " + ",".join(formatDiffList))
 
                 if len(mismatchTypes) > 0:
@@ -266,7 +329,8 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
         except Exception as e:
             if verbose:
                 tb.print_exc(e)
-            raise FatalError("FATAL ERROR comparing to baseColumn worksheet %s cell %s : %s" % (row[colIdx].parent.title, row[colIdx].coordinate, str(e)))
+            raise FatalError("FATAL ERROR comparing to baseColumn worksheet %s cell %s : %s" %
+                             (row[colIdx].parent.title, row[colIdx].coordinate, str(e)))
 
     mismatchCell = wsOut.cell(row=getOutputCell(row[0], wsOut).row, column=1).offset(column=mismatchFlagIdx)
     if len(mismatchDict) > 0:
@@ -304,8 +368,9 @@ def appendColumnIfNotExist(ws, columnHeader):
 
 
 def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose=False):
-    '''
-    Check that the workbook contains one sheet for every corresponding entry in the configurationSheetColumn of ws, and highlight all cells in wsOut that represent sheets that don't exist.
+    """
+    Check that the workbook contains one sheet for every corresponding entry in the configurationSheetColumn of ws,
+    and highlight all cells in wsOut that represent sheets that don't exist.
 
     Input:
     wb (xl.workbook.workbook.Workbook): Workbook containing sheets to check against configurationSheetColumn
@@ -315,8 +380,9 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
     verbose (boolen [opt]): If passed, prints each missing sheet to the screen
 
     Output:
-    List of sheets that are missing from the Workbook. If configurationSheetColumnName does not exist in ws, returns None
-    '''
+    List of sheets that are missing from the Workbook. If configurationSheetColumnName does not exist in ws,
+    returns None
+    """
     messages = []
     missingSheetList = []
 
@@ -369,7 +435,7 @@ def validate_workbook(wb, messages, args=None):
     # Iterate through WorkSheets
     for ws in wb:
         try:
-            wbOut.create_sheet(title = ws.title)
+            wbOut.create_sheet(title=ws.title)
             wsOut = wbOut[ws.title]
 
 
@@ -407,7 +473,10 @@ def validate_workbook(wb, messages, args=None):
                                 baseColumnIdx = colIdx 
 
                     # Check row for mismatch and print results
-                    rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx, ignoreOrder, wsOut, mismatchFlagIdx, outputMismatchTypesFlag, formatCheckFlag, formatCheckCharactersAdd, formatCheckCharacters, verbose)
+                    rowCheckResults = checkRowForMismatch(
+                        row, defaultColumnDict, baseColumnIdx, ignoreOrder, wsOut, mismatchFlagIdx,
+                        outputMismatchTypesFlag, formatCheckFlag, formatCheckCharactersAdd, formatCheckCharacters,
+                        verbose)
                     if len(rowCheckResults[1]) > 0:
                         if ws.title not in wsMismatchDict.keys():
                             wsMismatchDict[ws.title] = 1
@@ -416,10 +485,14 @@ def validate_workbook(wb, messages, args=None):
                         if verbose:
                             baseColumnName = defaultColumnDict[list(rowCheckResults[0].keys())[0]]
                             if outputMismatchTypesFlag:
-                                mismatchColumnNames = ",".join("%s (%s)" % (defaultColumnDict[i], ",".join(rowCheckResults[1][i][1])) for i in rowCheckResults[1].keys())
+                                mismatchColumnNames = ",".join(
+                                    "%s (%s)" %
+                                    (defaultColumnDict[i],
+                                     ",".join(rowCheckResults[1][i][1])) for i in rowCheckResults[1].keys())
                             else:
                                 mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
-                            print("WARNING %s row %s: the output values in %s do not match %s" % (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName))
+                            print("WARNING %s row %s: the output values in %s do not match %s" %
+                                  (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName))
             elif verbose:
                 print("WARNING %s: No columns found for comparison" % (ws.title,))
             # If ws is a configuration sheet, run the configuration check
@@ -455,7 +528,8 @@ def validate_workbook(wb, messages, args=None):
             for sheet in wbMissingSheets:
                 messages.append("%s is missing from the workbook." % (sheet,))
         for key in wsMismatchDict.keys():
-            messages.append("%s : %s row%s mismatched" % (key, wsMismatchDict[key], "" if wsMismatchDict[key]==1 else "s"))
+            messages.append("%s : %s row%s mismatched" %
+                            (key, wsMismatchDict[key], "" if wsMismatchDict[key]==1 else "s"))
 
 
 def main(argv):
