@@ -7,11 +7,12 @@ import traceback as tb
 import openpyxl as xl
 from .exceptions import FatalError
 
-##### DEFINE GLOBALS #####
+# DEFINE GLOBALS #
 NON_LINGUISTIC_CHARACTERS = "~`!@#$%^&*()_-+={[}]|\\:;\"'<,>.?/"
 MISMATCH_FILL_STYLE_NAME = "mismatchFillStyle"
 LESSER_MISMATCH_FILL_STYLE_NAME = "lesserMismatchFillStyle"
-##### DEFINE METHODS #####
+
+# DEFINE METHODS #
 
 
 def parseArguments():
@@ -171,10 +172,10 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
 
     baseOutputValueList = None
 
-    ## Get columnDictKeyList for Python3
+    # Get columnDictKeyList for Python3
     columnDictKeyList = list(columnDict.keys())
 
-    ## Build baseColumnDict
+    # Build baseColumnDict
     if baseColumnIdx is None:
         baseColumnIdx = sorted(columnDictKeyList)[0]
     baseOutputValueList, error_messages = convertCellToOutputValueList(row[baseColumnIdx])
@@ -183,7 +184,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
         baseOutputValueList = sorted(baseOutputValueList)
     baseColumnDict = {baseColumnIdx : baseOutputValueList}
 
-    ## Build baseFormatDict if needed
+    # Build baseFormatDict if needed
     if formatCheckFlag:
         baseFormatDict = getNonLinguisticCharacterCount(row[baseColumnIdx].value, formatCheckCharacters, formatCheckCharactersAdd)
 
@@ -197,10 +198,10 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
             if formatCheckFlag:
                 curFormatDict = getNonLinguisticCharacterCount(row[colIdx].value, formatCheckCharacters, formatCheckCharactersAdd)
             if colIdx != baseColumnIdx and (baseOutputValueList != curOutputValueList or baseFormatDict != curFormatDict):
-                ## Determine how everything is mismatched
+                # Determine how everything is mismatched
                 mismatchTypes = []
 
-                ## Determine whether any ill-formatted tags exist:
+                # Determine whether any ill-formatted tags exist:
                 illFormattedValueList = []
                 for value in curOutputValueList:
                     if value.startswith("ILL-FORMATTED TAG : "):
@@ -208,7 +209,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                 if illFormattedValueList != []:
                     mismatchTypes.append("Ill-Formatted Tags - " + ",".join(illFormattedValueList)) 
 
-                ## Determine whether any values missing from current list
+                # Determine whether any values missing from current list
                 missingValueList = []
                 for value in baseOutputValueList:
                     if value not in curOutputValueList:
@@ -216,7 +217,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                 if missingValueList != []:
                     mismatchTypes.append("Missing Values - " + ",".join(missingValueList))
 
-                ## Determine whether extra values have been added in current list
+                # Determine whether extra values have been added in current list
                 extraValueList = []
                 for value in curOutputValueList:
                     if value not in baseOutputValueList:
@@ -224,7 +225,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                 if extraValueList != []:
                     mismatchTypes.append("Extra Values - " + ",".join(extraValueList))
 
-                ## Determine if, after considering missing/extra values, there are sort issues
+                # Determine if, after considering missing/extra values, there are sort issues
                 if not ignoreOrder and len(baseOutputValueList) != 0:
                     baseListIndex = 0
                     for value in curOutputValueList:
@@ -236,7 +237,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                                 break 
                             baseListIndex += 1
 
-                ## Determine whether there are any text formatting mismatches
+                # Determine whether there are any text formatting mismatches
                 if baseFormatDict != curFormatDict:
                     formatDiffList = []
                     for key in baseFormatDict.keys():
@@ -321,7 +322,7 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
     messages = []
     missingSheetList = []
 
-    ## Check that the configuration column exists at all
+    # Check that the configuration column exists at all
     colIdx = None
     for headerIdx, cell in enumerate(list(ws.rows)[0]):
         if cell.value == configurationSheetColumnName:
@@ -330,7 +331,7 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
         messages.append("%s not found in %s. Skipping sheet check." % (configurationSheetColumnName, ws.title))
         return None
 
-    ## Iterate over configuration column, flagging red if corresponding sheet does not exist
+    # Iterate over configuration column, flagging red if corresponding sheet does not exist
     for cell in list(ws.columns)[colIdx][1:]:
         if cell.value not in (sheet.title for sheet in wb):
             missingSheetList.append(cell.value)
@@ -358,31 +359,31 @@ def validate_workbook(wb, messages, args=None):
     debugMode = args.debugMode if args else False
     outputFolder = args.outputFolder if args else 'commcareTranslationChecker_Output'
 
-    ## Open new Workbook
+    # Open new Workbook
     wbOut = xl.Workbook()
     register_styles(wbOut)
     wbOut.remove_sheet(wbOut.active)
 
-    ## Summary lists
+    # Summary lists
     wsMismatchDict = {}
     wbMissingSheets = []
 
-    ## Iterate through WorkSheets
+    # Iterate through WorkSheets
     for ws in wb:
         try:
             wbOut.create_sheet(title = ws.title)
             wsOut = wbOut[ws.title]
 
 
-            ## Dictionaries mapping column index to column name
+            # Dictionaries mapping column index to column name
             defaultColumnDict = {}
             mismatchTypesColumnDict = {}
 
             maxHeaderIdx = 0
-            ## Find all columns of format "default_[CODE]"
+            # Find all columns of format "default_[CODE]"
             ws_rows = list(ws.rows)
             for headerIdx, cell in enumerate(ws_rows[0]):
-                ## First, copy cell into new workbook
+                # First, copy cell into new workbook
                 cellOut = createOutputCell(cell, wsOut)
                 if columns:
                     if cell.value in columns:
@@ -391,25 +392,25 @@ def validate_workbook(wb, messages, args=None):
                     defaultColumnDict[headerIdx] = cell.value
                 if headerIdx > maxHeaderIdx:
                     maxHeaderIdx = headerIdx
-            ## If defaultColumnDict is empty, skip processing
-            ## Otherwise, create header cell in wsOut for mismatchFlag
+            # If defaultColumnDict is empty, skip processing
+            # Otherwise, create header cell in wsOut for mismatchFlag
             if len(defaultColumnDict) != 0:
                 mismatchFlagIdx = appendColumnIfNotExist(wsOut, "mismatchFlag")
 
 
                 for rowIdx, row in enumerate(ws_rows[1:]):
-                    ## First, copy every cell into new workbook
+                    # First, copy every cell into new workbook
                     for cell in row:
                         cellOut = createOutputCell(cell, wsOut)
 
-                    ## Fetch baseColumn information
+                    # Fetch baseColumn information
                     baseColumnIdx = None
                     if baseColumn:
                         for colIdx in defaultColumnDict.keys():
                             if defaultColumnDict[colIdx] == baseColumn:
                                 baseColumnIdx = colIdx 
 
-                    ## Check row for mismatch and print results
+                    # Check row for mismatch and print results
                     rowCheckResults = checkRowForMismatch(row, defaultColumnDict, baseColumnIdx, ignoreOrder, wsOut, mismatchFlagIdx, outputMismatchTypesFlag, formatCheckFlag, formatCheckCharactersAdd, formatCheckCharacters, verbose)
                     if len(rowCheckResults[1]) > 0:
                         if ws.title not in wsMismatchDict.keys():
@@ -425,8 +426,7 @@ def validate_workbook(wb, messages, args=None):
                             print("WARNING %s row %s: the output values in %s do not match %s" % (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName))
             elif verbose:
                 print("WARNING %s: No columns found for comparison" % (ws.title,))
-
-            ## If ws is a configuration sheet, run the configuration check
+            # If ws is a configuration sheet, run the configuration check
             if ws.title == configurationSheet:
                 wbMissingSheets = checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose)
         except Exception as e:
@@ -434,14 +434,14 @@ def validate_workbook(wb, messages, args=None):
                 tb.print_exc(e)
             raise FatalError("FATAL ERROR in worksheet %s : %s" % (ws.title, str(e)))
 
-    ## Save workbook and print summary
+    # Save workbook and print summary
     if len(wsMismatchDict) > 0 or (wbMissingSheets is not None and len(wbMissingSheets) > 0):
         if args and createOutputFileFlag:
             tsString = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             fileBasename = os.path.splitext(os.path.basename(args.file))[0]
             outputFolder = outputFolder
             outputFileName = os.path.join(outputFolder,"%s_%s_Output.xlsx" % (fileBasename, tsString))
-            ## Create the output directory if it does not exist
+            # Create the output directory if it does not exist
             if not os.path.exists(os.path.dirname(outputFileName)):
                 try:
                     os.makedirs(os.path.dirname(outputFileName),)
