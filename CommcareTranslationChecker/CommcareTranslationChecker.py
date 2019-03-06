@@ -81,7 +81,7 @@ def createOutputCell(cell, wsOut):
     New Cell in wsOut
     '''
     try:
-        newCell = wsOut.cell(coordinate = cell.coordinate) 
+        newCell = wsOut.cell(row=cell.row, column=cell.column)
         newCell.value = cell.value
         newCell.style = xl.styles.Style(alignment = xl.styles.Alignment(wrap_text = True))
         return newCell
@@ -287,7 +287,7 @@ def appendColumnIfNotExist(ws, columnHeader):
             return headerIdx
         maxHeaderIdx = max(headerIdx, maxHeaderIdx)
     newColIdx = maxHeaderIdx + 1
-    ws.cell("A1").offset(column = newColIdx).value = columnHeader
+    ws.cell(1, 1).offset(column=newColIdx).value = columnHeader
     return newColIdx
 
 
