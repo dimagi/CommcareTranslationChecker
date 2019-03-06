@@ -78,7 +78,7 @@ def convertCellToOutputValueList(cell):
                 outputValue = cell.value[currentIndex:]
                 messages.append("closeTag not found for " + outputValue)
                 outputList.append("ILL-FORMATTED TAG : " + outputValue)
-    except TypeError as e:
+    except TypeError:
         return []
     except Exception as e:
         raise FatalError("FATAL ERROR determining output values for worksheet %s cell %s : %s" % (cell.parent.title, cell.coordinate, str(e)))
@@ -167,7 +167,6 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
     '''
     messages = []
     mismatchDict = {}
-    baseColumnDict=  {}
     baseFormatDict = {}
 
     baseOutputValueList = None
@@ -259,7 +258,6 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                     if outputMismatchTypesFlag:
                         mismatchTypesColIdx = appendColumnIfNotExist(wsOut, "mismatch_%s"%(columnDict[colIdx],))
                         mismatchTypesCellOut = wsOut.rows[getOutputCell(row[0],wsOut).row-1][mismatchTypesColIdx]
-                        #mismatchTypesCellOut = getOutputCell(row[0], wsOut).row[mismatchTypesColIdx]
                         mismatchTypesCellOut.value = ",".join(mismatchTypes)
                         mismatchTypesCellOut.style = curMismatchFillStyle
 
@@ -377,14 +375,13 @@ def validate_workbook(wb, messages, args=None):
 
             # Dictionaries mapping column index to column name
             defaultColumnDict = {}
-            mismatchTypesColumnDict = {}
 
             maxHeaderIdx = 0
             # Find all columns of format "default_[CODE]"
             ws_rows = list(ws.rows)
             for headerIdx, cell in enumerate(ws_rows[0]):
                 # First, copy cell into new workbook
-                cellOut = createOutputCell(cell, wsOut)
+                createOutputCell(cell, wsOut)
                 if columns:
                     if cell.value in columns:
                         defaultColumnDict[headerIdx] = cell.value
@@ -401,7 +398,7 @@ def validate_workbook(wb, messages, args=None):
                 for rowIdx, row in enumerate(ws_rows[1:]):
                     # First, copy every cell into new workbook
                     for cell in row:
-                        cellOut = createOutputCell(cell, wsOut)
+                        createOutputCell(cell, wsOut)
 
                     # Fetch baseColumn information
                     baseColumnIdx = None
