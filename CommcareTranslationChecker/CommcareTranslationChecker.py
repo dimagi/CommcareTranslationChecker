@@ -438,7 +438,7 @@ def validate_workbook(wb, messages, args=None):
     if len(wsMismatchDict) > 0 or (wbMissingSheets is not None and len(wbMissingSheets) > 0):
         if args and createOutputFileFlag:
             tsString = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            fileBasename = os.path.splitext(os.path.basename(file))[0]
+            fileBasename = os.path.splitext(os.path.basename(args.file))[0]
             outputFolder = outputFolder
             outputFileName = os.path.join(outputFolder,"%s_%s_Output.xlsx" % (fileBasename, tsString))
             ## Create the output directory if it does not exist
