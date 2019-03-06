@@ -17,56 +17,56 @@ LESSER_MISMATCH_FILL_STYLE_NAME = "lesserMismatchFillStyle"
 
 def parseArguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--file", help="Location of Translation file to check", type=str, required=True)
+    parser.add_argument("file", help="Location of Translation file to check", type=str)
     parser.add_argument("--columns",
-                        help="[Opt] Comma-separated list of column names to check. "
+                        help="Comma-separated list of column names to check. "
                              "By default, all columns that start with 'default_' will be checked.",
                         type=str, default=None)
     parser.add_argument("--base-column",
-                        help="[Opt] Name of column that others are to be compared against. "
+                        help="Name of column that others are to be compared against. "
                              "Warnings are flagged for all columns that do not match the base-column. "
                              "Defaults to leftmost column in columns.",
                         type=str, default=None, dest='baseColumn')
     parser.add_argument("--ignore-order",
-                        help="[Opt] If passed, the order in which output value tags appear will not be considered "
+                        help="If passed, the order in which output value tags appear will not be considered "
                              "when comparing cells against each other. "
                              "This is useful if the order of the output value tags is different between columns "
                              "because of differences in word orders between the languages involved.",
                         action="store_true", default=False, dest='ignoreOrder')
     parser.add_argument("-v", "--verbose",
-                        help="[Opt] If passed, output will be printed to the screen pointing out which rows of the "
+                        help="If passed, output will be printed to the screen pointing out which rows of the "
                              "file have issues.",
                         action="store_true", default=False)
     parser.add_argument("--output-folder",
-                        help="[Opt] Folder in which any output files should be passed. "
+                        help="Folder in which any output files should be passed. "
                              "Defaults to 'commcareTranslationChecker_Output' folder relative to folder from which "
                              "the script is called. Can be relative or absolute path.",
                         type=str, default="commcareTranslationChecker_Output", dest='outputFolder')
     parser.add_argument("--no-output-file",
-                        help="[Opt] If passed, no output file will be created.",
+                        help="If passed, no output file will be created.",
                         action="store_false", default=True, dest="createOutputFileFlag")
     parser.add_argument("--configuration-sheet",
-                        help="[Opt] Specify which sheet contains configuration information about modules and forms. "
+                        help="Specify which sheet contains configuration information about modules and forms. "
                              "Defaults to 'Modules_and_forms'",
                         type=str, default="Modules_and_forms", dest='configurationSheet')
     parser.add_argument("--configuration-sheet-column",
-                        help="[Opt] specify which column in the configuration sheet contains expected sheet names. "
+                        help="specify which column in the configuration sheet contains expected sheet names. "
                              "Defaults to 'sheet_name'",
                         type=str, default="sheet_name", dest='configurationSheetColumnName')
     parser.add_argument("--output-mismatch-types",
-                        help="[Opt] If passed, information will be returned about the exact type of output value "
+                        help="If passed, information will be returned about the exact type of output value "
                              "mismatch that occurs.",
                         action="store_true", default=False, dest="outputMismatchTypesFlag")
     parser.add_argument("--format-check",
-                        help="[Opt] If passed, text formatting will be checked as well as output values.",
+                        help="If passed, text formatting will be checked as well as output values.",
                         action="store_true", default=False, dest="formatCheckFlag")
     parser.add_argument("--format-check-characters",
-                        help="[Opt] A list of characters considered non-linguistic that will be counted when "
+                        help="A list of characters considered non-linguistic that will be counted when "
                              "format-check is run. The characters \\ and \" need to be escaped as \\\\ and \\\". "
                              "Defaults to CommcareTranslationChecker.NON_LINGUISTIC_CHARACTERS",
                         type=str, default=None, dest="formatCheckCharacters")
     parser.add_argument("--format-check-characters-add",
-                        help="[Opt] A list of characters to be added to the default or passed format-check-characters "
+                        help="A list of characters to be added to the default or passed format-check-characters "
                              "list. The characters \\ and \" need to be escaped as \\\\ and \\\". Defaults to None.",
                         type=str, default=None, dest="formatCheckCharactersAdd")
     parser.add_argument("--debug-mode", "-d", action="store_true", default=False, dest="debugMode")
