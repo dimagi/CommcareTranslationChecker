@@ -9,7 +9,8 @@ from .exceptions import FatalError
 
 ##### DEFINE GLOBALS #####
 NON_LINGUISTIC_CHARACTERS = "~`!@#$%^&*()_-+={[}]|\\:;\"'<,>.?/"
-
+MISMATCH_FILL_STYLE_NAME = "mismatchFillStyle"
+LESSER_MISMATCH_FILL_STYLE_NAME = "lesserMismatchFillStyle"
 ##### DEFINE METHODS #####
 
 
@@ -30,6 +31,21 @@ def parseArguments():
     parser.add_argument("--format-check-characters-add", help = "[Opt] A list of characters to be added to the default or passed format-check-characters list. The characters \\ and \" need to be escaped as \\\\ and \\\". Defaults to None.", type=str, default = None, dest = "formatCheckCharactersAdd")
     parser.add_argument("--debug-mode", "-d", action="store_true", default=False, dest="debugMode")
     return parser.parse_args()
+
+
+def register_styles(wb):
+    mismatchFillStyle = xl.styles.NamedStyle(
+        name=MISMATCH_FILL_STYLE_NAME,
+        fill=xl.styles.PatternFill(fgColor=xl.styles.colors.Color(xl.styles.colors.RED),
+                                   fill_type="solid"), alignment=xl.styles.Alignment(wrap_text=True))
+    lesserMismatchFillStyle = xl.styles.NamedStyle(
+        name=LESSER_MISMATCH_FILL_STYLE_NAME,
+        fill=xl.styles.PatternFill(fgColor=xl.styles.colors.Color(xl.styles.colors.YELLOW), fill_type="solid"),
+        alignment=xl.styles.Alignment(wrap_text=True))
+    if MISMATCH_FILL_STYLE_NAME not in wb.named_styles:
+        wb.add_named_style(mismatchFillStyle)
+    if LESSER_MISMATCH_FILL_STYLE_NAME not in wb.named_styles:
+        wb.add_named_style(lesserMismatchFillStyle)
 
 
 def convertCellToOutputValueList(cell):
@@ -155,9 +171,6 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
 
     baseOutputValueList = None
 
-    mismatchFillStyle = xl.styles.Style(fill = xl.styles.PatternFill(fgColor = xl.styles.colors.Color(xl.styles.colors.RED), fill_type = "solid"), alignment = xl.styles.Alignment(wrap_text = True))
-    lesserMismatchFillStyle = xl.styles.Style(fill = xl.styles.PatternFill(fgColor = xl.styles.colors.Color(xl.styles.colors.YELLOW), fill_type = "solid"), alignment = xl.styles.Alignment(wrap_text = True))
-
     ## Get columnDictKeyList for Python3
     columnDictKeyList = list(columnDict.keys())
 
@@ -238,9 +251,9 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                 if wsOut:
                     cellOut = getOutputCell(row[colIdx], wsOut)
                     if len(mismatchTypes) == 1 and "Text Formatting Mismatch" in mismatchTypes[0]:
-                        curMismatchFillStyle = lesserMismatchFillStyle
+                        curMismatchFillStyle = LESSER_MISMATCH_FILL_STYLE_NAME
                     else:
-                        curMismatchFillStyle = mismatchFillStyle
+                        curMismatchFillStyle = MISMATCH_FILL_STYLE_NAME
                     cellOut.style = curMismatchFillStyle
                     if outputMismatchTypesFlag:
                         mismatchTypesColIdx = appendColumnIfNotExist(wsOut, "mismatch_%s"%(columnDict[colIdx],))
@@ -258,10 +271,10 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
 
     mismatchCell =wsOut.cell(row = getOutputCell(row[0], wsOut).row, column = 1).offset(column = mismatchFlagIdx)
     if len(mismatchDict) > 0:
-        curMismatchFillStyle = lesserMismatchFillStyle
+        curMismatchFillStyle = LESSER_MISMATCH_FILL_STYLE_NAME
         for key in mismatchDict:
             if len(mismatchDict[key][1]) > 1 or "Text Formatting Mismatch" not in mismatchDict[key][1][0]:
-                curMismatchFillStyle = mismatchFillStyle
+                curMismatchFillStyle = MISMATCH_FILL_STYLE_NAME
         mismatchCell.value = "Y"
         mismatchCell.style = curMismatchFillStyle
     else:
@@ -306,7 +319,6 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
     List of sheets that are missing from the Workbook. If configurationSheetColumnName does not exist in ws, returns None
     '''
     messages = []
-    mismatchFillStyle = xl.styles.Style(fill = xl.styles.PatternFill(fgColor = xl.styles.colors.Color(xl.styles.colors.RED), fill_type = "solid"), alignment = xl.styles.Alignment(wrap_text = True))
     missingSheetList = []
 
     ## Check that the configuration column exists at all
@@ -322,7 +334,7 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
     for cell in list(ws.columns)[colIdx][1:]:
         if cell.value not in (sheet.title for sheet in wb):
             missingSheetList.append(cell.value)
-            getOutputCell(cell, wsOut).style = mismatchFillStyle
+            getOutputCell(cell, wsOut).style = MISMATCH_FILL_STYLE_NAME
             if verbose:
                 print("WARNING: This sheet is missing from the workbook: %s" % (cell.value,))
 
@@ -349,6 +361,7 @@ def validate_workbook(file, messages, args=None):
 
     ## Open new Workbook
     wbOut = xl.Workbook()
+    register_styles(wbOut)
     wbOut.remove_sheet(wbOut.active)
 
     ## Summary lists
