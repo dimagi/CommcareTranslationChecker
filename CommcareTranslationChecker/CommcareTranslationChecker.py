@@ -83,7 +83,7 @@ def createOutputCell(cell, wsOut):
     try:
         newCell = wsOut.cell(row=cell.row, column=cell.column)
         newCell.value = cell.value
-        newCell.style = xl.styles.Style(alignment = xl.styles.Alignment(wrap_text = True))
+        newCell.alignment = xl.styles.Alignment(wrap_text=True)
         return newCell
     except Exception as e:
         raise FatalError("FATAL ERROR creating output cell for worksheet %s cell %s (writing to output worksheet %s) : %s" % (cell.parent.title, cell.coordinate, wsOut.title, str(e)))
