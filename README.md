@@ -36,14 +36,16 @@ After the file has been created, a summary will be printed outlining how many ro
 Use via import
 ------------------------
 ```
+>>> import openpyxl
 >>> from CommcareTranslationChecker import validate_workbook
 >>> messages = []
->>> validate_workbook("examples/TranslationCheckerTest_BulkAppTranslation.xlsx", messages)
+>>> wb = openpyxl.load_workbook("examples/TranslationCheckerTest_BulkAppTranslation.xlsx")
+>>> validate_workbook(wb, messages)
 Traceback (most recent call last):
   File "<stdin>", line 1, in <module>
-  File "CommcareTranslationChecker/CommcareTranslationChecker.py", line 448, in validate_workbook
-    raise FatalError("FATAL ERROR in worksheet")
-CommcareTranslationChecker.exceptions.FatalError: FATAL ERROR in worksheet
+  File "CommcareTranslationChecker/CommcareTranslationChecker.py", line 527, in validate_workbook
+    raise FatalError("Some fatal error message.")
+CommcareTranslationChecker.exceptions.FatalError: Some fatal error message.
 >>> messages
 ['There were issues with the following worksheets:', u'moduleX_formY is missing from the workbook.']
 ```
