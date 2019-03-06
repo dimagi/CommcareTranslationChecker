@@ -119,7 +119,7 @@ def convertCellToOutputValueList(cell):
                 messages.append("closeTag not found for " + outputValue)
                 outputList.append("ILL-FORMATTED TAG : " + outputValue)
     except TypeError:
-        return []
+        return [], messages
     except Exception as e:
         raise FatalError("FATAL ERROR determining output values for worksheet %s cell %s : %s" %
                          (cell.parent.title, cell.coordinate, str(e)))
@@ -318,7 +318,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
                     cellOut.style = curMismatchFillStyle
                     if outputMismatchTypesFlag:
                         mismatchTypesColIdx = appendColumnIfNotExist(wsOut, "mismatch_%s"%(columnDict[colIdx],))
-                        mismatchTypesCellOut = wsOut.rows[getOutputCell(row[0],wsOut).row-1][mismatchTypesColIdx]
+                        mismatchTypesCellOut = wsOut.rows[getOutputCell(row[0], wsOut).row-1][mismatchTypesColIdx]
                         mismatchTypesCellOut.value = ",".join(mismatchTypes)
                         mismatchTypesCellOut.style = curMismatchFillStyle
 
