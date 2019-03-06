@@ -506,7 +506,7 @@ def validate_workbook(wb, messages, args=None):
             tsString = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             fileBasename = os.path.splitext(os.path.basename(args.file))[0]
             outputFolder = outputFolder
-            outputFileName = os.path.join(outputFolder,"%s_%s_Output.xlsx" % (fileBasename, tsString))
+            outputFileName = os.path.join(outputFolder, "%s_%s_Output.xlsx" % (fileBasename, tsString))
             # Create the output directory if it does not exist
             if not os.path.exists(os.path.dirname(outputFileName)):
                 try:
@@ -527,6 +527,7 @@ def validate_workbook(wb, messages, args=None):
         for key in wsMismatchDict.keys():
             messages.append("%s : %s row%s mismatched" %
                             (key, wsMismatchDict[key], "" if wsMismatchDict[key] == 1 else "s"))
+    return wbOut
 
 
 def main(argv):
