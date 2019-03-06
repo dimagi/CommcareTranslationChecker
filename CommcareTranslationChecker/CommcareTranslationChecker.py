@@ -282,7 +282,7 @@ def appendColumnIfNotExist(ws, columnHeader):
     If column with columnHeader does not exist, append it to ws. Return index of column with columnHeader.
     '''
     maxHeaderIdx = 0
-    for headerIdx, cell in enumerate(ws.rows[0]):
+    for headerIdx, cell in enumerate(list(ws.rows)[0]):
         if cell.value == columnHeader:
             return headerIdx
         maxHeaderIdx = max(headerIdx, maxHeaderIdx)
@@ -311,7 +311,7 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
 
     ## Check that the configuration column exists at all
     colIdx = None
-    for headerIdx, cell in enumerate(ws.rows[0]):
+    for headerIdx, cell in enumerate(list(ws.rows)[0]):
         if cell.value == configurationSheetColumnName:
             colIdx = headerIdx
     if colIdx == None:
@@ -319,7 +319,7 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
         return None
 
     ## Iterate over configuration column, flagging red if corresponding sheet does not exist
-    for cell in ws.columns[colIdx][1:]:
+    for cell in list(ws.columns)[colIdx][1:]:
         if cell.value not in (sheet.title for sheet in wb):
             missingSheetList.append(cell.value)
             getOutputCell(cell, wsOut).style = mismatchFillStyle
@@ -368,7 +368,8 @@ def validate_workbook(file, messages, args=None):
 
             maxHeaderIdx = 0
             ## Find all columns of format "default_[CODE]"
-            for headerIdx, cell in enumerate(ws.rows[0]):
+            ws_rows = list(ws.rows)
+            for headerIdx, cell in enumerate(ws_rows[0]):
                 ## First, copy cell into new workbook
                 cellOut = createOutputCell(cell, wsOut)
                 if columns:
@@ -384,7 +385,7 @@ def validate_workbook(file, messages, args=None):
                 mismatchFlagIdx = appendColumnIfNotExist(wsOut, "mismatchFlag")
 
 
-                for rowIdx, row in enumerate(ws.rows[1:]):
+                for rowIdx, row in enumerate(ws_rows[1:]):
                     ## First, copy every cell into new workbook
                     for cell in row:
                         cellOut = createOutputCell(cell, wsOut)
