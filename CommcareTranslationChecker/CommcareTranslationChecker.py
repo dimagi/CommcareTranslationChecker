@@ -61,7 +61,7 @@ def convertCellToOutputValueList(cell):
     '''
     messages = []
     openTag = "<output value=\""
-    closeTag ="\"/>"
+    closeTag = "\"/>"
     outputList = []
     currentIndex = 0
     try:
@@ -107,7 +107,7 @@ def createOutputCell(cell, wsOut):
 
 
 def getOutputCell(cell, wsOut):
-    '''
+    """
     Fetch an existing Cell object from wsOut corresponding to the coordinates of cell.
 
     Input:
@@ -116,13 +116,13 @@ def getOutputCell(cell, wsOut):
 
     Output:
     Cell objects from wsOut corresponding to coordinates of cell 
-    '''
+    """
 
     return wsOut[cell.coordinate]
 
 
-def getNonLinguisticCharacterCount(val, additionalCharactersToCatch = None, characterList = None):
-    '''
+def getNonLinguisticCharacterCount(val, additionalCharactersToCatch=None, characterList=None):
+    """
     Check a string for how many of each kind of non-linguistic character it contains and return a dictionary mapping character to count.
 
     Input:
@@ -132,14 +132,14 @@ def getNonLinguisticCharacterCount(val, additionalCharactersToCatch = None, char
 
     Output:
     Dictionary mapping non-linguistic character to count of appearance in val 
-    '''
+    """
     charCountDict = {}
     if val is None:
         val = ""
 
-    if characterList == None:
+    if characterList is None:
         characterList = NON_LINGUISTIC_CHARACTERS
-    if additionalCharactersToCatch != None:
+    if additionalCharactersToCatch is not None:
         characterList += "".join([x for x in additionalCharactersToCatch if x not in characterList])
 
     for char in characterList:
@@ -148,8 +148,8 @@ def getNonLinguisticCharacterCount(val, additionalCharactersToCatch = None, char
     return charCountDict
 
 
-def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = False, wsOut = None, mismatchFlagIdx = None, outputMismatchTypesFlag = False, formatCheckFlag = False, formatCheckCharacters = None, formatCheckCharactersAdd = None, verbose=False):
-    '''
+def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, wsOut=None, mismatchFlagIdx=None, outputMismatchTypesFlag=False, formatCheckFlag=False, formatCheckCharacters=None, formatCheckCharactersAdd=None, verbose=False):
+    """
     Check all of the given columns in a row provided for any mismatch in the columns' OutputValueList 
 
     Input:
@@ -164,7 +164,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
 
     Output:
     Tuple consisting of a single-element dictionary mapping the baseColumn's index to its outputValueList, and a dictionary mapping the column indexes of mismatched cells to a tuple consisting of the associated cell's OutputValueList and a list of mismatchTypes. wsOut altered so that every Cell that is mismatched is filled with Red, and mismatchFlag column filled with "Y" if there was a mismatch in the row, "N" otherwise.
-    '''
+    """
     messages = []
     mismatchDict = {}
     baseFormatDict = {}
@@ -181,7 +181,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
     messages.extend(error_messages)
     if ignoreOrder:
         baseOutputValueList = sorted(baseOutputValueList)
-    baseColumnDict = {baseColumnIdx : baseOutputValueList}
+    baseColumnDict = {baseColumnIdx: baseOutputValueList}
 
     # Build baseFormatDict if needed
     if formatCheckFlag:
@@ -205,7 +205,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                 for value in curOutputValueList:
                     if value.startswith("ILL-FORMATTED TAG : "):
                         illFormattedValueList.append(value[20:])
-                if illFormattedValueList != []:
+                if illFormattedValueList:
                     mismatchTypes.append("Ill-Formatted Tags - " + ",".join(illFormattedValueList)) 
 
                 # Determine whether any values missing from current list
@@ -213,7 +213,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                 for value in baseOutputValueList:
                     if value not in curOutputValueList:
                         missingValueList.append(value)
-                if missingValueList != []:
+                if missingValueList:
                     mismatchTypes.append("Missing Values - " + ",".join(missingValueList))
 
                 # Determine whether extra values have been added in current list
@@ -221,7 +221,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                 for value in curOutputValueList:
                     if value not in baseOutputValueList:
                         extraValueList.append(value)
-                if extraValueList != []:
+                if extraValueList:
                     mismatchTypes.append("Extra Values - " + ",".join(extraValueList))
 
                 # Determine if, after considering missing/extra values, there are sort issues
@@ -268,7 +268,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
                 tb.print_exc(e)
             raise FatalError("FATAL ERROR comparing to baseColumn worksheet %s cell %s : %s" % (row[colIdx].parent.title, row[colIdx].coordinate, str(e)))
 
-    mismatchCell =wsOut.cell(row = getOutputCell(row[0], wsOut).row, column = 1).offset(column = mismatchFlagIdx)
+    mismatchCell = wsOut.cell(row=getOutputCell(row[0], wsOut).row, column=1).offset(column=mismatchFlagIdx)
     if len(mismatchDict) > 0:
         curMismatchFillStyle = LESSER_MISMATCH_FILL_STYLE_NAME
         for key in mismatchDict:
@@ -279,7 +279,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx = None, ignoreOrder = Fal
     else:
         mismatchCell.value = "N"
 
-    return (baseColumnDict, mismatchDict)
+    return baseColumnDict, mismatchDict
 
 
 def appendColumnIfNotExist(ws, columnHeader):
@@ -303,7 +303,7 @@ def appendColumnIfNotExist(ws, columnHeader):
     return newColIdx
 
 
-def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose = False):
+def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose=False):
     '''
     Check that the workbook contains one sheet for every corresponding entry in the configurationSheetColumn of ws, and highlight all cells in wsOut that represent sheets that don't exist.
 
@@ -325,7 +325,7 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
     for headerIdx, cell in enumerate(list(ws.rows)[0]):
         if cell.value == configurationSheetColumnName:
             colIdx = headerIdx
-    if colIdx == None:
+    if colIdx is None:
         messages.append("%s not found in %s. Skipping sheet check." % (configurationSheetColumnName, ws.title))
         return None
 
@@ -393,7 +393,6 @@ def validate_workbook(wb, messages, args=None):
             # Otherwise, create header cell in wsOut for mismatchFlag
             if len(defaultColumnDict) != 0:
                 mismatchFlagIdx = appendColumnIfNotExist(wsOut, "mismatchFlag")
-
 
                 for rowIdx, row in enumerate(ws_rows[1:]):
                     # First, copy every cell into new workbook
