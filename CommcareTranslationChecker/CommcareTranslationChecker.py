@@ -225,8 +225,6 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
     mismatchDict = {}
     baseFormatDict = {}
 
-    baseOutputValueList = None
-
     # Get columnDictKeyList for Python3
     columnDictKeyList = list(columnDict.keys())
 
@@ -437,7 +435,6 @@ def validate_workbook(wb, messages, args=None):
         try:
             wbOut.create_sheet(title=ws.title)
             wsOut = wbOut[ws.title]
-
 
             # Dictionaries mapping column index to column name
             defaultColumnDict = {}
