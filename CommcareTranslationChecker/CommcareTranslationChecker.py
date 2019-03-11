@@ -164,16 +164,16 @@ def getOutputCell(cell, wsOut):
     return wsOut[cell.coordinate]
 
 
-def getNonLinguisticCharacterCount(val, additionalCharactersToCatch=None, characterList=None):
+def getNonLinguisticCharacterCount(val, characterList=NON_LINGUISTIC_CHARACTERS, additionalCharactersToCatch=""):
     """
     Check a string for how many of each kind of non-linguistic character it contains and
     return a dictionary mapping character to count.
 
     Input:
     val(str): string to get counts from
-    additionalCharactersToCatch(str [opt]): string of characters to append onto the characterList
     characterList(str [opt]): string of characters considered non-linguistic.
     Defaults to CommcareTranslationChecker.NON_LINGUISTIC_CHARACTERS
+    additionalCharactersToCatch(str [opt]): string of characters to append onto the characterList
 
     Output:
     Dictionary mapping non-linguistic character to count of appearance in val 
@@ -182,10 +182,7 @@ def getNonLinguisticCharacterCount(val, additionalCharactersToCatch=None, charac
     if val is None:
         val = ""
 
-    if characterList is None:
-        characterList = NON_LINGUISTIC_CHARACTERS
-    if additionalCharactersToCatch is not None:
-        characterList += "".join([x for x in additionalCharactersToCatch if x not in characterList])
+    characterList += "".join([x for x in additionalCharactersToCatch if x not in characterList])
 
     for char in characterList:
         charCountDict[char] = val.count(char)
