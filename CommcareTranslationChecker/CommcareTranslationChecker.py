@@ -164,7 +164,7 @@ def getOutputCell(cell, wsOut):
     return wsOut[cell.coordinate]
 
 
-def getNonLinguisticCharacterCount(val, characterList=NON_LINGUISTIC_CHARACTERS, additionalCharactersToCatch=""):
+def getNonLinguisticCharacterCount(val, characterList=NON_LINGUISTIC_CHARACTERS, additionalCharactersToCatch=None):
     """
     Check a string for how many of each kind of non-linguistic character it contains and
     return a dictionary mapping character to count.
@@ -182,7 +182,8 @@ def getNonLinguisticCharacterCount(val, characterList=NON_LINGUISTIC_CHARACTERS,
     if val is None:
         val = ""
 
-    characterList += "".join([x for x in additionalCharactersToCatch if x not in characterList])
+    if additionalCharactersToCatch:
+        characterList += "".join([x for x in additionalCharactersToCatch if x not in characterList])
 
     for char in characterList:
         charCountDict[char] = val.count(char)
