@@ -64,7 +64,7 @@ def parseArguments():
                         help="A list of characters considered non-linguistic that will be counted when "
                              "format-check is run. The characters \\ and \" need to be escaped as \\\\ and \\\". "
                              "Defaults to CommcareTranslationChecker.NON_LINGUISTIC_CHARACTERS",
-                        type=str, default=None, dest="formatCheckCharacters")
+                        type=str, default=NON_LINGUISTIC_CHARACTERS, dest="formatCheckCharacters")
     parser.add_argument("--format-check-characters-add",
                         help="A list of characters to be added to the default or passed format-check-characters "
                              "list. The characters \\ and \" need to be escaped as \\\\ and \\\". Defaults to None.",
@@ -470,7 +470,7 @@ def validate_workbook(wb, messages, args=None):
                     # Check row for mismatch and print results
                     rowCheckResults = checkRowForMismatch(
                         row, defaultColumnDict, baseColumnIdx, ignoreOrder, wsOut, mismatchFlagIdx,
-                        outputMismatchTypesFlag, formatCheckFlag, formatCheckCharactersAdd, formatCheckCharacters,
+                        outputMismatchTypesFlag, formatCheckFlag, formatCheckCharacters, formatCheckCharactersAdd,
                         verbose)
                     if len(rowCheckResults[1]) > 0:
                         if ws.title not in wsMismatchDict.keys():
