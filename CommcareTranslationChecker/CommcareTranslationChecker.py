@@ -422,7 +422,7 @@ def validate_workbook(wb, messages, args=None):
     # Open new Workbook
     wbOut = xl.Workbook()
     register_styles(wbOut)
-    wbOut.remove_sheet(wbOut.active)
+    wbOut.remove(wbOut.active)
 
     # Summary lists
     wsMismatchDict = {}
