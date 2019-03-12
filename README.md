@@ -23,7 +23,7 @@ Basic Command-line Usage
 The basic usage of the command-line tool is with a saved Excel file. This can either be configured for [Form Translation](https://confluence.dimagi.com/display/commcarepublic/Form+Bulk+Translation) or [Application Translation](https://confluence.dimagi.com/display/commcarepublic/Bulk+Application+Translations)
 
 ```
-$ CommcareTranslationChecker    --file <relative or absolute path to translation file>
+$ CommcareTranslationChecker  <relative or absolute path to translation file>
 ```
 
 By default, this will read the specified file, and check all columns whose names start with "default_" against the left-most "default_" column. If any discrepancies are found between the list of "output value" tags in any of the columns, a file will be generated in the folder "commcareTranslationChecker_output." If no such folder exists relative to the current path, it will be created. This file will be an exact copy of the data in the input file, with an additional column "mismatchFlag" appended to each sheet. This column will be flagged "Y" in all rows for which a disprepancy was detected, and "N" otherwise. In addition, all cells whose "output value" tags differ from the left-most column's will be red-filled, for easy visual reference.
@@ -33,13 +33,29 @@ If the translation file contains a sheet called Modules_and_forms, with a column
 After the file has been created, a summary will be printed outlining how many rows were found to have discrepancies per sheet.
 
 
+Use via import
+------------------------
+```
+>>> import openpyxl
+>>> from CommcareTranslationChecker import validate_workbook
+>>> messages = []
+>>> wb = openpyxl.load_workbook("examples/TranslationCheckerTest_BulkAppTranslation.xlsx")
+>>> validate_workbook(wb, messages)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "CommcareTranslationChecker/CommcareTranslationChecker.py", line 527, in validate_workbook
+    raise FatalError("Some fatal error message.")
+CommcareTranslationChecker.exceptions.FatalError: Some fatal error message.
+>>> messages
+['There were issues with the following worksheets:', u'moduleX_formY is missing from the workbook.']
+```
+
 Advanced Command-line Usage
 ---------------------------
 In addition to the basic usage outlined, there are a number of optional parameters that will provide a more customized experience.
 
 ```
-$ CommcareTranslationChecker    --file <relative or absolute path to translation file> \
-                                --columns <comma-separated list of column names to check> \
+$ CommcareTranslationChecker    --columns <comma-separated list of column names to check> \
                                 --base-column <name of column to be compared against, if different from left-most> \
                                 --output-folder <relative or absolute path to folder in which to save output file> \
                                 --ignore-order \

@@ -1,0 +1,1 @@
+from CommcareTranslationChecker import validate_workbook
