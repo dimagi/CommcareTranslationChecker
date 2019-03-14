@@ -1,6 +1,7 @@
 from __future__ import print_function
 import sys
 import os
+import re
 import datetime
 import argparse
 import traceback as tb
@@ -11,6 +12,10 @@ from .exceptions import FatalError
 NON_LINGUISTIC_CHARACTERS = "~`!@#$%^&*()_-+={[}]|\\:;\"'<,>.?/"
 MISMATCH_FILL_STYLE_NAME = "mismatchFillStyle"
 LESSER_MISMATCH_FILL_STYLE_NAME = "lesserMismatchFillStyle"
+FORMATTING_TAGS = [
+    r'(\*\*[\S]+)',  # opening format tag for bold
+    r'([\S]+\*\*)',  # closing format tag for bold
+]
 
 # DEFINE METHODS #
 
@@ -191,6 +196,20 @@ def getNonLinguisticCharacterCount(val, characterList=NON_LINGUISTIC_CHARACTERS,
     return charCountDict
 
 
+def get_invalid_format_tags(base_column_value, output_column_value):
+    """
+    checks for number of occurrences of specific formatting tags in between base and output column
+    :return: list of tags that don't match for the number of occurrences in both sentences
+    """
+    invalid_format_tags = []
+    for tag in FORMATTING_TAGS:
+        base_column_matches_count = len(re.findall(tag, base_column_value))
+        output_column_matches_count = len(re.findall(tag, output_column_value))
+        if base_column_matches_count != output_column_matches_count:
+            invalid_format_tags.append(tag)
+    return invalid_format_tags
+
+
 def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, wsOut=None, mismatchFlagIdx=None,
                         outputMismatchTypesFlag=False, formatCheckFlag=False, formatCheckCharacters=None,
                         formatCheckCharactersAdd=None, verbose=False):
@@ -220,6 +239,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
     and mismatchFlag column filled with "Y" if there was a mismatch in the row, "N" otherwise.
     """
     messages = []
+    invalid_format_tags = []
     mismatchDict = {}
     baseFormatDict = {}
 
@@ -250,8 +270,10 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
             if formatCheckFlag:
                 curFormatDict = getNonLinguisticCharacterCount(row[colIdx].value, formatCheckCharacters,
                                                                formatCheckCharactersAdd)
+                invalid_format_tags = get_invalid_format_tags(row[baseColumnIdx].value, row[colIdx].value)
             if (colIdx != baseColumnIdx and
-                    (baseOutputValueList != curOutputValueList or baseFormatDict != curFormatDict)):
+                    (baseOutputValueList != curOutputValueList or baseFormatDict != curFormatDict or
+                     invalid_format_tags)):
                 # Determine how everything is mismatched
                 mismatchTypes = []
 
@@ -261,7 +283,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
                     if value.startswith("ILL-FORMATTED TAG : "):
                         illFormattedValueList.append(value[20:])
                 if illFormattedValueList:
-                    mismatchTypes.append("Ill-Formatted Tags - " + ",".join(illFormattedValueList)) 
+                    mismatchTypes.append("Ill-Formatted Tags - " + ",".join(illFormattedValueList))
 
                 # Determine whether any values missing from current list
                 missingValueList = []
@@ -290,7 +312,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
                             if (len(baseOutputValueList) > baseListIndex and
                                         value != baseOutputValueList[baseListIndex]):
                                 mismatchTypes.append("Out of Order")
-                                break 
+                                break
                             baseListIndex += 1
 
                 # Determine whether there are any text formatting mismatches
@@ -303,6 +325,10 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
                                                   (key,
                                                    str(keyDiff) if keyDiff < 0 else "+" + str(keyDiff)))
                     mismatchTypes.append("Text Formatting Mismatch - " + ",".join(formatDiffList))
+
+                if invalid_format_tags:
+                    for invalid_format_tag in invalid_format_tags:
+                        mismatchTypes.append("Text Formatting Mismatch - %s" % invalid_format_tag)
 
                 if len(mismatchTypes) > 0:
                     mismatchDict[colIdx] = (curOutputValueList, mismatchTypes)
