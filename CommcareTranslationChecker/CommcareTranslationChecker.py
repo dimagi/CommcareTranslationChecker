@@ -47,9 +47,9 @@ def parseArguments():
                              "Defaults to 'commcareTranslationChecker_Output' folder relative to folder from which "
                              "the script is called. Can be relative or absolute path.",
                         type=str, default="commcareTranslationChecker_Output", dest='outputFolder')
-    parser.add_argument("--no-output-file",
+    parser.add_argument("--output-file",
                         help="If passed, no output file will be created.",
-                        action="store_false", default=True, dest="createOutputFileFlag")
+                        action="store_true", default=False, dest="createOutputFileFlag")
     parser.add_argument("--configuration-sheet",
                         help="Specify which sheet contains configuration information about modules and forms. "
                              "Defaults to 'Modules_and_forms'",
@@ -442,7 +442,7 @@ def validate_workbook(file_obj, messages, args=None):
     formatCheckCharacters = args.formatCheckCharacters if args else None
     configurationSheet = args.configurationSheet if args else 'Modules_and_forms'
     configurationSheetColumnName = args.configurationSheetColumnName if args else 'sheet_name'
-    createOutputFileFlag = args.createOutputFileFlag if args else True
+    createOutputFileFlag = args.createOutputFileFlag if args else False
     debugMode = args.debugMode if args else False
     outputFolder = args.outputFolder if args else 'commcareTranslationChecker_Output'
 
