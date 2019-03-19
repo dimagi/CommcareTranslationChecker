@@ -48,7 +48,7 @@ def parseArguments():
                              "the script is called. Can be relative or absolute path.",
                         type=str, default="commcareTranslationChecker_Output", dest='outputFolder')
     parser.add_argument("--output-file",
-                        help="If passed, no output file will be created.",
+                        help="If passed, output file will be created.",
                         action="store_true", default=False, dest="createOutputFileFlag")
     parser.add_argument("--configuration-sheet",
                         help="Specify which sheet contains configuration information about modules and forms. "
