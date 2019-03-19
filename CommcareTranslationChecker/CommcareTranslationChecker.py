@@ -62,9 +62,9 @@ def parseArguments():
                         help="If passed, information will be returned about the exact type of output value "
                              "mismatch that occurs.",
                         action="store_true", default=False, dest="outputMismatchTypesFlag")
-    parser.add_argument("--format-check",
+    parser.add_argument("--skip-format-check",
                         help="If passed, text formatting will be checked as well as output values.",
-                        action="store_true", default=False, dest="formatCheckFlag")
+                        action="store_true", default=False, dest="skipFormatCheckFlag")
     parser.add_argument("--format-check-characters",
                         help="A list of characters considered non-linguistic that will be counted when "
                              "format-check is run. The characters \\ and \" need to be escaped as \\\\ and \\\". "
@@ -211,7 +211,7 @@ def get_invalid_format_tags(base_column_value, output_column_value):
 
 
 def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, wsOut=None, mismatchFlagIdx=None,
-                        outputMismatchTypesFlag=False, formatCheckFlag=False, formatCheckCharacters=None,
+                        outputMismatchTypesFlag=False, skipFormatCheckFlag=False, formatCheckCharacters=None,
                         formatCheckCharactersAdd=None, verbose=False):
     """
     Check all of the given columns in a row provided for any mismatch in the columns' OutputValueList 
@@ -229,8 +229,8 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
     mismatchFlagIdx(int [opt]): Column index where the mismatchFlag value should be printed in wsOut
     outputMismatchTypesFlag(bool [opt]): Flag indicating whether to output the full mismatch types to the results file.
     Defaults to False
-    formatCheckFlag(bool [opt]): Flag indicating whether to check for bad text formatting outside of output value.
-    Defaults to False
+    skipFormatCheckFlag(bool [opt]): Flag indicating whether to skip check for bad text formatting outside of
+    output value. Defaults to False
 
     Output:
     Tuple consisting of a single-element dictionary mapping the baseColumn's index to its outputValueList,
@@ -256,7 +256,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
     baseColumnDict = {baseColumnIdx: baseOutputValueList}
 
     # Build baseFormatDict if needed
-    if formatCheckFlag:
+    if not skipFormatCheckFlag:
         baseFormatDict = getNonLinguisticCharacterCount(row[baseColumnIdx].value, formatCheckCharacters,
                                                         formatCheckCharactersAdd)
 
@@ -267,7 +267,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
             if ignoreOrder:
                 curOutputValueList = sorted(curOutputValueList)
             curFormatDict = {}
-            if formatCheckFlag:
+            if not skipFormatCheckFlag:
                 curFormatDict = getNonLinguisticCharacterCount(row[colIdx].value, formatCheckCharacters,
                                                                formatCheckCharactersAdd)
                 invalid_format_tags = get_invalid_format_tags(row[baseColumnIdx].value, row[colIdx].value)
@@ -437,7 +437,7 @@ def validate_workbook(file_obj, messages, args=None):
     baseColumn = args.baseColumn if args else None
     ignoreOrder = args.ignoreOrder if args else False
     outputMismatchTypesFlag = args.outputMismatchTypesFlag if args else False
-    formatCheckFlag = args.formatCheckFlag if args else False
+    skipFormatCheckFlag = args.skipFormatCheckFlag if args else False
     formatCheckCharactersAdd = args.formatCheckCharactersAdd if args else None
     formatCheckCharacters = args.formatCheckCharacters if args else None
     configurationSheet = args.configurationSheet if args else 'Modules_and_forms'
@@ -497,7 +497,7 @@ def validate_workbook(file_obj, messages, args=None):
                     # Check row for mismatch and print results
                     rowCheckResults = checkRowForMismatch(
                         row, defaultColumnDict, baseColumnIdx, ignoreOrder, wsOut, mismatchFlagIdx,
-                        outputMismatchTypesFlag, formatCheckFlag, formatCheckCharacters, formatCheckCharactersAdd,
+                        outputMismatchTypesFlag, skipFormatCheckFlag, formatCheckCharacters, formatCheckCharactersAdd,
                         verbose)
                     if len(rowCheckResults[1]) > 0:
                         if ws.title not in wsMismatchDict.keys():
