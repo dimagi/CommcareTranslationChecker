@@ -63,7 +63,7 @@ def parseArguments():
                              "mismatch that occurs.",
                         action="store_true", default=False, dest="outputMismatchTypesFlag")
     parser.add_argument("--skip-format-check",
-                        help="If passed, text formatting will be checked as well as output values.",
+                        help="If passed, check for text formatting and output values will be skipped.",
                         action="store_true", default=False, dest="skipFormatCheckFlag")
     parser.add_argument("--format-check-characters",
                         help="A list of characters considered non-linguistic that will be counted when "
