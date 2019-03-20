@@ -1,4 +1,7 @@
+from __future__ import absolute_import
 from __future__ import print_function
+from __future__ import unicode_literals
+
 import sys
 import os
 import re
@@ -500,7 +503,7 @@ def validate_workbook(file_obj, messages, args=None):
                         outputMismatchTypesFlag, skipFormatCheckFlag, formatCheckCharacters, formatCheckCharactersAdd,
                         verbose)
                     if len(rowCheckResults[1]) > 0:
-                        if ws.title not in wsMismatchDict.keys():
+                        if ws.title not in list(wsMismatchDict.keys()):
                             wsMismatchDict[ws.title] = 1
                         else:
                             wsMismatchDict[ws.title] += 1
