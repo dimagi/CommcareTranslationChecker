@@ -5,10 +5,13 @@ https://packaging.python.org/en/latest/distributing.html
 https://github.com/pypa/sampleproject
 """
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 # Always prefer setuptools over distutils
 from setuptools import setup, find_packages
 # To use a consistent encoding
-from codecs import open
+from io import open
 from os import path
 
 here = path.abspath(path.dirname(__file__))
@@ -23,7 +26,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.9.3.3',
+    version='0.9.3.4',
 
     description='Command line tool to check that Bulk Translation files for CommCare apps have consistent <output value.../> tags across translations.',
     long_description=long_description,
