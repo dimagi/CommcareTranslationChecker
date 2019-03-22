@@ -205,6 +205,8 @@ def get_invalid_format_tags(base_column_value, output_column_value):
     :return: list of tags that don't match for the number of occurrences in both sentences
     """
     invalid_format_tags = []
+    if not base_column_value or not output_column_value:
+        return invalid_format_tags
     for tag in FORMATTING_TAGS:
         base_column_matches_count = len(re.findall(tag, base_column_value))
         output_column_matches_count = len(re.findall(tag, output_column_value))
