@@ -44,7 +44,7 @@ def normalizeQuotes(text):
     """
     single_quotes_ord_values = [700, 1370, 8216, 8217, 8219, 10075, 10076, 65287]
     double_quotes_ord_values = [750, 8220, 8221, 8223, 10077, 10078, 65282]
-    
+
     normalized_str = []
     if not text:
         return ""
@@ -62,9 +62,9 @@ def fix_block_tags_mismatch(baseText, outputText):
     """
     Block tags such as headings, lists occur at the start of the line.
     We compare each line in base text with every line in output text.
-    If base text has a block tag in a line, then output text must also 
-    have a block tag in the same line. If block tag not found or some characters 
-    of block tag is missing, we fix them 
+    If base text has a block tag in a line, then output text must also
+    have a block tag in the same line. If block tag not found or some characters
+    of block tag is missing, we fix them
 
     Input:
     baseText(str): base column text
@@ -75,10 +75,11 @@ def fix_block_tags_mismatch(baseText, outputText):
     baseTextLines = baseText.splitlines()
     outputTextLines = outputText.splitlines()
     fixed_output_text = []
-    
+
     # If line count in base text and output text doesn't match,
     # then we cannot compare base text and output text line by line
     # so we return None which implies we are unable to fix
+    # A Warning will still be displayed to the user for this cell
     if len(baseTextLines) != len(outputTextLines):
         return None
 
@@ -107,14 +108,14 @@ def fix_block_tags_mismatch(baseText, outputText):
                     for position in range(len(base_tag_char_list)):
                         if outputTextLine[position] != base_tag_char_list[position]:
                             break
-                    
+
                     if position == len(base_tag_char_list):
                         fixed_output_text.append(outputTextLine)
                         break
                     else:
                         fixed_output_text.append(re.sub(' +', ' ', ''.join(base_tag_char_list) + outputTextLine[position:]))
                         break
-            
+
             if regex_match_found is False:
                 fixed_output_text.append(outputTextLine)
         return '\n'.join(fixed_output_text)
@@ -132,7 +133,7 @@ def removeExtraOutputValues(extraValueList, text):
     extraValueList(list): list of output tag values to be removed
     text(str): The text in which extra output values to be removed
 
-    :return: outputText(str): The text with extra output values removed 
+    :return: outputText(str): The text with extra output values removed
     """
     outputText = text
     for extraValue in extraValueList:
@@ -148,7 +149,7 @@ def swapOutputValues(outputValueList, text):
     outputValueList(list): list of output values
     text(str): The text in which output values need to be swapped
 
-    :return: str:The text with output values swapped if len(outpputValueList) is 2 
+    :return: str:The text with output values swapped if len(outpputValueList) is 2
                 otherwise return text which is passed as parameter
     """
     if len(outputValueList) == 2:
