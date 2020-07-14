@@ -1,24 +1,24 @@
-from __future__ import absolute_import
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import absolute_import, print_function, unicode_literals
 
-import sys
+import argparse
+import datetime
 import os
 import re
-import datetime
-import argparse
+import sys
 import traceback as tb
+
 import openpyxl as xl
+
 from .exceptions import FatalError
+from .utils import (BLOCK_FORMATTING_TAGS, INLINE_FORMATTING_TAGS,
+                    fix_block_tags_mismatch, normalizeQuotes,
+                    regex_match_count, removeExtraOutputValues,
+                    swapOutputValues)
 
 # DEFINE GLOBALS #
 NON_LINGUISTIC_CHARACTERS = "~`!@#$%^&*()_-+={[}]|\\:;\"'<,>.?/"
 MISMATCH_FILL_STYLE_NAME = "mismatchFillStyle"
 LESSER_MISMATCH_FILL_STYLE_NAME = "lesserMismatchFillStyle"
-FORMATTING_TAGS = [
-    r'(\*\*[\S]+)',  # opening format tag for bold
-    r'([\S]+\*\*)',  # closing format tag for bold
-]
 
 # DEFINE METHODS #
 
@@ -204,18 +204,24 @@ def get_invalid_format_tags(base_column_value, output_column_value):
     checks for number of occurrences of specific formatting tags in between base and output column
     :return: list of tags that don't match for the number of occurrences in both sentences
     """
-    invalid_format_tags = []
+    invalid_inline_format_tags = []
+    invalid_block_format_tags = []
     if not base_column_value or not output_column_value:
-        return invalid_format_tags
-    for tag in FORMATTING_TAGS:
+        return invalid_inline_format_tags, invalid_block_format_tags
+    for tag in INLINE_FORMATTING_TAGS:
         base_column_matches_count = len(re.findall(tag, base_column_value))
         output_column_matches_count = len(re.findall(tag, output_column_value))
         if base_column_matches_count != output_column_matches_count:
-            invalid_format_tags.append(tag)
-    return invalid_format_tags
+            invalid_inline_format_tags.append(tag)
+    for tag in BLOCK_FORMATTING_TAGS:
+        base_column_matches_count = regex_match_count(tag, base_column_value)
+        output_column_matches_count = regex_match_count(tag, output_column_value)
+        if base_column_matches_count != output_column_matches_count:
+            invalid_block_format_tags.append(tag)
+    return invalid_inline_format_tags, invalid_block_format_tags
 
 
-def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, wsOut=None, mismatchFlagIdx=None,
+def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ignoreOrder=False, wsOut=None, mismatchFlagIdx=None,
                         outputMismatchTypesFlag=False, skipFormatCheckFlag=False, formatCheckCharacters=None,
                         formatCheckCharactersAdd=None, verbose=False):
     """
@@ -225,6 +231,8 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
     row(list): list of openyxl.cell.cell.Cell objects representing a single row in an Excel sheet 
     columnDict(dict): dictionary mapping column index to column name,
     representing every column to be checked against the baseColumn
+    fixedColumnDict(dict): dictionary mapping default column index to their corresponding fixed columns
+    except for base column
     baseColumnIdx(int [opt]): Index of the column to be considered "correct."
     Defaults to lowest-indexed column in columnDict.
     ignoreOrder(bool [opt]): If True, the order in which output values appear will be ignored for purposes of
@@ -262,7 +270,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
 
     # Build baseFormatDict if needed
     if not skipFormatCheckFlag:
-        baseFormatDict = getNonLinguisticCharacterCount(row[baseColumnIdx].value, formatCheckCharacters,
+        baseFormatDict = getNonLinguisticCharacterCount(normalizeQuotes(row[baseColumnIdx].value), formatCheckCharacters,
                                                         formatCheckCharactersAdd)
 
     for colIdx in columnDictKeyList:
@@ -272,10 +280,28 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
             if ignoreOrder:
                 curOutputValueList = sorted(curOutputValueList)
             curFormatDict = {}
+
+            # Initialize block_tags_fixed_flag to False, if any fix is applied, set to True
+            block_tags_fixed_flag = False
             if not skipFormatCheckFlag:
-                curFormatDict = getNonLinguisticCharacterCount(row[colIdx].value, formatCheckCharacters,
+                curFormatDict = getNonLinguisticCharacterCount(normalizeQuotes(row[colIdx].value), formatCheckCharacters,
                                                                formatCheckCharactersAdd)
-                invalid_format_tags = get_invalid_format_tags(row[baseColumnIdx].value, row[colIdx].value)
+                # invalid_inline_format_tags contains mismatches for bold, italic, bold italic and strikethrough
+                # invalid_block_format_tags contains mismatches for headings, and lists
+                invalid_inline_format_tags, invalid_block_format_tags = get_invalid_format_tags(row[baseColumnIdx].value, row[colIdx].value)
+
+                # Fix block tag mismatches, and calculate mismatches, non linguistic character count on fixed text
+                if colIdx != baseColumnIdx and invalid_block_format_tags:
+                    outputText = fix_block_tags_mismatch(row[baseColumnIdx].value, row[colIdx].value)
+                    if outputText != row[colIdx].value and outputText is not None:
+                        block_tags_fixed_flag = True
+                        fix_invalid_inline_format_tags, fix_invalid_block_format_tags = get_invalid_format_tags(row[baseColumnIdx].value, outputText)
+                        fixFormatDict = getNonLinguisticCharacterCount(normalizeQuotes(outputText), formatCheckCharacters,
+                                                               formatCheckCharactersAdd)
+
+            # Join invalid inline format tags and invalid block tag mismatches
+            invalid_format_tags = invalid_inline_format_tags.extend(invalid_block_format_tags)
+
             if (colIdx != baseColumnIdx and
                     (baseOutputValueList != curOutputValueList or baseFormatDict != curFormatDict or
                      invalid_format_tags)):
@@ -340,16 +366,56 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
 
                 if wsOut:
                     cellOut = getOutputCell(row[colIdx], wsOut)
-                    if len(mismatchTypes) == 1 and "Text Formatting Mismatch" in mismatchTypes[0]:
+                    # If output value mismatch is present, style the cell with MISMATCH_FILL_STYLE
+                    # If Text Formatting mismatch is present, style the cell with LESSER_MISMATCH_FILL_STYLE
+                    if len(mismatchTypes) > 0:
                         curMismatchFillStyle = LESSER_MISMATCH_FILL_STYLE_NAME
-                    else:
-                        curMismatchFillStyle = MISMATCH_FILL_STYLE_NAME
-                    cellOut.style = curMismatchFillStyle
+                        for mismatch in mismatchTypes:
+                            if "Text Formatting Mismatch" not in mismatch:
+                                curMismatchFillStyle = MISMATCH_FILL_STYLE_NAME
+                        cellOut.style = curMismatchFillStyle
                     if outputMismatchTypesFlag:
                         mismatchTypesColIdx = appendColumnIfNotExist(wsOut, "mismatch_%s"%(columnDict[colIdx],))
                         mismatchTypesCellOut = wsOut.rows[getOutputCell(row[0], wsOut).row-1][mismatchTypesColIdx]
                         mismatchTypesCellOut.value = ",".join(mismatchTypes)
                         mismatchTypesCellOut.style = curMismatchFillStyle
+
+                if not block_tags_fixed_flag:
+                    outputText = row[colIdx].value
+                # If there are any extra output values remove them
+                fixOutputTags = False
+                if extraValueList:
+                    if block_tags_fixed_flag:
+                        outputText = removeExtraOutputValues(extraValueList, outputText)
+                    else:
+                        outputText = removeExtraOutputValues(extraValueList, row[colIdx].value)
+                    fixOutputTags = True
+
+                # Swap output tags when tags are out of order and only two output tags are present
+                if "Out of Order" in mismatchTypes and len(curOutputValueList) == 2:
+                    if fixOutputTags or block_tags_fixed_flag:
+                        outputText = swapOutputValues(curOutputValueList, outputText) or outputText
+                    else:
+                        outputText = swapOutputValues(curOutputValueList, row[colIdx].value) or row[colIdx].value
+                    fixOutputTags = True
+
+                # If any fix is applied, fill the fixed text column and
+                # if output value mismatch is present style the cell with MISMATCH_FILL_STYLE
+                # if only text formatting mismatch occurs style the cell with LESSER_MISMATCH_FILL_STYLE
+                currFixedCell = wsOut.cell(row=getOutputCell(row[0], wsOut).row, column=1).offset(column=fixedColumnDict[colIdx])
+                if block_tags_fixed_flag or fixOutputTags:
+                    currFixedCell.value = outputText
+                    if block_tags_fixed_flag:
+                        if fix_invalid_block_format_tags or fix_invalid_inline_format_tags or fixFormatDict != baseFormatDict:
+                            currFixedCell.style = LESSER_MISMATCH_FILL_STYLE_NAME
+                    if fixOutputTags:
+                        fixedOutputValueList, error_messages = convertCellToOutputValueList(currFixedCell)
+                        messages.extend(error_messages)
+                        if fixedOutputValueList != baseOutputValueList:
+                            currFixedCell.style = MISMATCH_FILL_STYLE_NAME
+                    else:
+                        if baseOutputValueList != curOutputValueList:
+                            currFixedCell.style = MISMATCH_FILL_STYLE_NAME
 
         except AttributeError as e:
             messages.append(str(e))
@@ -363,7 +429,7 @@ def checkRowForMismatch(row, columnDict, baseColumnIdx=None, ignoreOrder=False, 
     if len(mismatchDict) > 0:
         curMismatchFillStyle = LESSER_MISMATCH_FILL_STYLE_NAME
         for key in mismatchDict:
-            if len(mismatchDict[key][1]) > 1 or "Text Formatting Mismatch" not in mismatchDict[key][1][0]:
+            if len(mismatchDict[key][1]) > 0 and "Text Formatting Mismatch" not in mismatchDict[key][1][0]:
                 curMismatchFillStyle = MISMATCH_FILL_STYLE_NAME
         mismatchCell.value = "Y"
         mismatchCell.style = curMismatchFillStyle
@@ -401,9 +467,9 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
 
     Input:
     wb (xl.workbook.workbook.Workbook): Workbook containing sheets to check against configurationSheetColumn
-    ws (xl.worksheet.worksheet.Worksheet): Worksheet containing the column to check 
+    ws (xl.worksheet.worksheet.Worksheet): Worksheet containing the column to check
     configurationSheetColumnName (str): Name of column to compare sheet names against
-    wsOut (xl.worksheet.worksheet.Worksheet): Worksheet to print highlighted cells to 
+    wsOut (xl.worksheet.worksheet.Worksheet): Worksheet to print highlighted cells to
     verbose (boolen [opt]): If passed, prints each missing sheet to the screen
 
     Output:
@@ -431,6 +497,36 @@ def checkConfigurationSheet(wb, ws, configurationSheetColumnName, wsOut, verbose
                 print("WARNING: This sheet is missing from the workbook: %s" % (cell.value,))
 
     return missingSheetList
+
+
+def appendFixColumns(ws, baseColumn, defaultColumnDict):
+    """
+    For each column in defaultColumnDict, add a new column prepending 'fix_'
+    to column name in defaultColumnName except for baseColumn
+
+    Input:
+    ws(worksheet): Worksheet to which we append columns to
+    baseColumn(str): Name of baseColumn
+    defaultColumnDict(dict): dictionary containing mappings to columns starting with 'default_'
+
+    Return:
+    fixedColumnDict(dict): dictionary containing mappings from default column index to fixed column index
+    """
+    baseColumnIdx = None
+    if baseColumn:
+        for colIdx in defaultColumnDict.keys():
+            if defaultColumnDict[colIdx] == baseColumn:
+                baseColumnIdx = colIdx
+    if baseColumnIdx is None:
+        baseColumnIdx = sorted(list(defaultColumnDict.keys()))[0]
+    fixedColumnDict = {}
+
+    for headerIdx, value in defaultColumnDict.items():
+        if headerIdx == baseColumnIdx:
+            continue
+        currFixedIdx = appendColumnIfNotExist(ws, "fix_" + value)
+        fixedColumnDict[headerIdx] = currFixedIdx
+    return fixedColumnDict
 
 
 def validate_workbook(file_obj, messages, args=None):
@@ -487,6 +583,9 @@ def validate_workbook(file_obj, messages, args=None):
             if len(defaultColumnDict) != 0:
                 mismatchFlagIdx = appendColumnIfNotExist(wsOut, "mismatchFlag")
 
+                # For every default column except base column create fixed text column
+                fixedColumnDict = appendFixColumns(wsOut, baseColumn, defaultColumnDict)
+
                 for rowIdx, row in enumerate(ws_rows[1:]):
                     # First, copy every cell into new workbook
                     for cell in row:
@@ -497,11 +596,11 @@ def validate_workbook(file_obj, messages, args=None):
                     if baseColumn:
                         for colIdx in defaultColumnDict.keys():
                             if defaultColumnDict[colIdx] == baseColumn:
-                                baseColumnIdx = colIdx 
+                                baseColumnIdx = colIdx
 
                     # Check row for mismatch and print results
                     rowCheckResults = checkRowForMismatch(
-                        row, defaultColumnDict, baseColumnIdx, ignoreOrder, wsOut, mismatchFlagIdx,
+                        row, defaultColumnDict, fixedColumnDict, baseColumnIdx, ignoreOrder, wsOut, mismatchFlagIdx,
                         outputMismatchTypesFlag, skipFormatCheckFlag, formatCheckCharacters, formatCheckCharactersAdd,
                         verbose)
                     if len(rowCheckResults[1]) > 0:
