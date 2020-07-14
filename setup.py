@@ -31,6 +31,7 @@ setup(
 
     description='Command line tool to check that Bulk Translation files for CommCare apps have consistent <output value.../> tags across translations.',
     long_description=long_description,
+    long_description_content_type='text/markdown',
 
     # The project's main homepage.
     url='https://github.com/dimagi/CommcareTranslationChecker',
