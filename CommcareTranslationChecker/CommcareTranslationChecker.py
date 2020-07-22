@@ -529,7 +529,7 @@ def appendFixColumns(ws, baseColumn, defaultColumnDict):
     return fixedColumnDict
 
 
-def validate_workbook(file_obj, messages, args=None):
+def validate_workbook(file_obj, messages=[], args=None):
     wb = xl.load_workbook(file_obj)
     if args and args.verbose:
         print("Workbook Loaded")
