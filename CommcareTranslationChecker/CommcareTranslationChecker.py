@@ -657,7 +657,7 @@ def validate_workbook(file_obj, args=None):
         for key in wsMismatchDict.keys():
             messages.append("%s : %s row%s mismatched" %
                             (key, wsMismatchDict[key], "" if wsMismatchDict[key] == 1 else "s"))
-    return wbOut
+    return wbOut, messages
 
 
 def main(argv):
