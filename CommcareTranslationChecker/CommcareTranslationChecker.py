@@ -529,7 +529,8 @@ def appendFixColumns(ws, baseColumn, defaultColumnDict):
     return fixedColumnDict
 
 
-def validate_workbook(file_obj, messages=[], args=None):
+def validate_workbook(file_obj, args=None):
+    messages = []
     wb = xl.load_workbook(file_obj)
     if args and args.verbose:
         print("Workbook Loaded")
@@ -618,7 +619,7 @@ def validate_workbook(file_obj, messages=[], args=None):
                             else:
                                 mismatchColumnNames = ",".join(defaultColumnDict[i] for i in rowCheckResults[1].keys())
                             print("WARNING %s row %s: the output values in %s do not match %s" %
-                                  (ws.title, rowIdx+2, mismatchColumnNames, baseColumnName))
+                                  (ws.title, rowIdx + 2, mismatchColumnNames, baseColumnName))
             elif verbose:
                 print("WARNING %s: No columns found for comparison" % (ws.title,))
             # If ws is a configuration sheet, run the configuration check
