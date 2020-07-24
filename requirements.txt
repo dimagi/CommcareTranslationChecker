@@ -1,1 +1,1 @@
-openpyxl==2.6.1
+# dependency specified in setup.py
