@@ -8,8 +8,6 @@ import sys
 import traceback as tb
 
 import openpyxl as xl
-from openpyxl.styles.colors import COLOR_INDEX
-
 
 from .exceptions import FatalError
 from .utils import (BLOCK_FORMATTING_TAGS, INLINE_FORMATTING_TAGS,
