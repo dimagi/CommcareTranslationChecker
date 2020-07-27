@@ -20,16 +20,13 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
-with open(path.join(here, 'requirements.txt')) as f:
-    requirements = f.read().splitlines()
-
 setup(
     name='CommcareTranslationChecker',
 
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.9.6',
+    version='0.9.7',
 
     description='Command line tool to check that Bulk Translation files for CommCare apps have consistent <output value.../> tags across translations.',
     long_description=long_description,
@@ -84,7 +81,7 @@ setup(
     # your project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=requirements,
+    install_requires=['openpyxl>=2.6.4'],
 
 
     # To provide executable scripts, use entry points in preference to the

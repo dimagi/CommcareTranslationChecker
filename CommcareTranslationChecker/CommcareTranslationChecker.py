@@ -20,6 +20,11 @@ NON_LINGUISTIC_CHARACTERS = "~`!@#$%^&*()_-+={[}]|\\:;\"'<,>.?/"
 MISMATCH_FILL_STYLE_NAME = "mismatchFillStyle"
 LESSER_MISMATCH_FILL_STYLE_NAME = "lesserMismatchFillStyle"
 
+# DEFINE COLORS
+RED = '00FF0000'
+YELLOW = '00FFFF00'
+
+
 # DEFINE METHODS #
 
 
@@ -84,11 +89,11 @@ def parseArguments():
 def register_styles(wb):
     mismatchFillStyle = xl.styles.NamedStyle(
         name=MISMATCH_FILL_STYLE_NAME,
-        fill=xl.styles.PatternFill(fgColor=xl.styles.colors.Color(xl.styles.colors.RED),
+        fill=xl.styles.PatternFill(fgColor=xl.styles.colors.Color(RED),
                                    fill_type="solid"), alignment=xl.styles.Alignment(wrap_text=True))
     lesserMismatchFillStyle = xl.styles.NamedStyle(
         name=LESSER_MISMATCH_FILL_STYLE_NAME,
-        fill=xl.styles.PatternFill(fgColor=xl.styles.colors.Color(xl.styles.colors.YELLOW), fill_type="solid"),
+        fill=xl.styles.PatternFill(fgColor=xl.styles.colors.Color(YELLOW), fill_type="solid"),
         alignment=xl.styles.Alignment(wrap_text=True))
     if MISMATCH_FILL_STYLE_NAME not in wb.named_styles:
         wb.add_named_style(mismatchFillStyle)
@@ -664,7 +669,7 @@ def main(argv):
     args = parseArguments()
     messages = []
     try:
-        validate_workbook(args.file, messages, args)
+        result_wb, messages = validate_workbook(args.file, args)
     except xl.utils.exceptions.InvalidFileException as e:
         print("Invalid File: %s" % (str(e),))
         if args.debugMode:
