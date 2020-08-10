@@ -118,3 +118,38 @@ https://pypi.python.org/pypi/CommcareTranslationChecker
 6\. Create a release on github
 
 https://github.com/dimagi/CommcareTranslationChecker/releases
+
+
+#Usage:
+
+## Mismatch Types
+There are two types of mismatches:
+1. Output tag mismatch
+This happens when the output tags in base language text and the translated text does not match i.e. when the output tags are missing or in the wrong order.
+These mismatches are highlighted in **red** color.
+2. Formatting or markdown mismatch
+This happens when there are formatting or markdown mismatches. Formatting mismatches happen when the non linguistic characters of base language text does not match with the translated text. Markdown mismatches happen when the markdown in base language text does not match with the markdown in translated text.
+These mismatches are highlighted in **yellow** color.
+
+####Examples of formatting mismatch:
+* base language has special chars but translated language does not
+* base language does not have special chars but translated language does
+* markdown syntax issues, like a missing asterisk of pound
+
+
+
+
+## Columns added in Output Excel Sheet
+This tool adds additional columns in output excel sheet.
+* **mismatch flag** column indicates whether there is a mismatch. *Y* indicates a mismatch, and *N* indicates a no mismatch.
+* A **fix_default_<translated_language>** column is added for every translated columns. A language column starts with default_. If no base language is specified, the first column is considered as base column and remaining columns are considered as translated columns and a fix_default_<translated_language> column is added. If any fix is applied, this column contains the corrected text.
+
+## Suggestions on possible fixes
+* Output Tag mismatches
+	* If there is any output tag in translated text not present in base text, removes the output tags in translated text.
+	* If there are two output tags and they are out of order in translated text, the tool swaps their positions if ignore order flag is not set
+* Formatting and markdown mismatches
+	* This tool fixes markdown issues with
+		* Headings (level 1 to 6),
+		* Ordered Lists
+		* Unordered Lists

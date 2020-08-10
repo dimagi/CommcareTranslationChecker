@@ -16,7 +16,7 @@ BLOCK_FORMATTING_TAGS = [
     r'(^### [\S]+)', # Format tag for heading 3
     r'(^#### [\S]+)', # Format tag for heading 4
     r'(^##### [\S]+)', # Format tag for heading 5
-    r'(^###### [\S]+)', # Format tag for heading 1
+    r'(^###### [\S]+)', # Format tag for heading 6
     r'(^\* [\S]+)', # Format tag for unordered lists
     r'(^[0-9]+. [\S]+)' # Format tag for ordered lists
 ]
