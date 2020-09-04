@@ -180,13 +180,8 @@ def convertCellToDict(cell):
 
 def linguisticCharChecker(baseDict, colDict):
     """
-    Convert an Excel cell to a dict of strings with occurence. <output value...> tags are ignored. 
-    If the Excel cell contains 'jr://file/' empty dict is returned.
-    Input:
-    cell (xl.cell.cell.Cell): Cell whose contents are to be parsed
-
-    Output:
-    Dict with strings as key and occurence as value
+    takes base column word dictionary and current column word dictionary as input. 
+    Returns list of common words and whether the script is english in both the columns or not. 
 
    """
     sharedWords = list(set(baseDict).intersection(colDict))
