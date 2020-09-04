@@ -19,10 +19,12 @@ from .utils import (BLOCK_FORMATTING_TAGS, INLINE_FORMATTING_TAGS,
 NON_LINGUISTIC_CHARACTERS = "~`!@#$%^&*()_-+={[}]|\\:;\"'<,>.?/"
 MISMATCH_FILL_STYLE_NAME = "mismatchFillStyle"
 LESSER_MISMATCH_FILL_STYLE_NAME = "lesserMismatchFillStyle"
+LANG_MISMATCH_FILL_STYLE_NAME = "langMismatchFillStyle"
 
 # DEFINE COLORS
 RED = '00FF0000'
 YELLOW = '00FFFF00'
+BLUE = '000000FF'
 
 
 # DEFINE METHODS #
@@ -95,10 +97,16 @@ def register_styles(wb):
         name=LESSER_MISMATCH_FILL_STYLE_NAME,
         fill=xl.styles.PatternFill(fgColor=xl.styles.colors.Color(YELLOW), fill_type="solid"),
         alignment=xl.styles.Alignment(wrap_text=True))
+    langMismatchFillStyle = xl.styles.NamedStyle(
+        name=LANG_MISMATCH_FILL_STYLE_NAME,
+        fill=xl.styles.PatternFill(fgColor=xl.styles.colors.Color(BLUE), fill_type="solid"),
+        alignment=xl.styles.Alignment(wrap_text=True))
     if MISMATCH_FILL_STYLE_NAME not in wb.named_styles:
         wb.add_named_style(mismatchFillStyle)
     if LESSER_MISMATCH_FILL_STYLE_NAME not in wb.named_styles:
         wb.add_named_style(lesserMismatchFillStyle)
+    if LANG_MISMATCH_FILL_STYLE_NAME not in wb.named_styles:
+        wb.add_named_style(langMismatchFillStyle)
 
 
 def convertCellToOutputValueList(cell):
@@ -139,6 +147,59 @@ def convertCellToOutputValueList(cell):
 
     return outputList, messages
 
+
+def convertCellToDict(cell):
+    """
+    Convert an Excel cell to a dict of strings with occurence. <output value...> tags are ignored. 
+    If the Excel cell contains 'jr://file/' empty dict is returned.
+    Input:
+    cell (xl.cell.cell.Cell): Cell whose contents are to be parsed
+
+    Output:
+    Dict with strings as key and occurence as value
+
+   """
+    outputDict = {}
+    x = cell.value
+    if'jr://file/' in x:
+        return outputDict
+
+    try:
+        x = re.sub(r'(?:\s)<output[^, ]*', '', x)
+        x = re.sub(r'(?:\s)value=[^, ]*', '', x)
+    except Exception as e:
+        raise FatalError("FATAL ERROR determining string values for worksheet %s cell %s : %s" %
+                         (cell.parent.title, cell.coordinate, str(e)))
+    
+    for i in x.split():
+        i = re.sub(r'[\W\_]','',i)
+        if not outputDict.get(i) and (i and i.strip()) and not (re.match(r'^[0-9]*$', i)):
+            outputDict[i] = 1
+
+    return outputDict
+
+def linguisticCharChecker(baseDict, colDict):
+    """
+    Convert an Excel cell to a dict of strings with occurence. <output value...> tags are ignored. 
+    If the Excel cell contains 'jr://file/' empty dict is returned.
+    Input:
+    cell (xl.cell.cell.Cell): Cell whose contents are to be parsed
+
+    Output:
+    Dict with strings as key and occurence as value
+
+   """
+    sharedWords = list(set(baseDict).intersection(colDict))
+    if not sharedWords:
+        return sharedWords, False
+    for i in list(colDict.keys()):
+        if i in sharedWords:
+            continue
+        else:
+            if re.match(r"^[A-Za-z0-9]*$",i):
+                return sharedWords, False
+            else:
+                return sharedWords, True
 
 def createOutputCell(cell, wsOut):
     '''
@@ -268,6 +329,7 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
     if baseColumnIdx is None:
         baseColumnIdx = sorted(columnDictKeyList)[0]
     baseOutputValueList, error_messages = convertCellToOutputValueList(row[baseColumnIdx])
+    baseValueDict = convertCellToDict(row[baseColumnIdx])
     messages.extend(error_messages)
     if ignoreOrder:
         baseOutputValueList = sorted(baseOutputValueList)
@@ -285,6 +347,9 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
             if ignoreOrder:
                 curOutputValueList = sorted(curOutputValueList)
             curFormatDict = {}
+            if (colIdx != baseColumnIdx):    
+                curValueDict = convertCellToDict(row[colIdx])
+                sharedWords, bool_translation = linguisticCharChecker(baseValueDict, curValueDict)
 
             # Initialize block_tags_fixed_flag to False, if any fix is applied, set to True
             block_tags_fixed_flag = False
@@ -368,7 +433,7 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
 
                 if len(mismatchTypes) > 0:
                     mismatchDict[colIdx] = (curOutputValueList, mismatchTypes)
-
+              
                 if wsOut:
                     cellOut = getOutputCell(row[colIdx], wsOut)
                     # If output value mismatch is present, style the cell with MISMATCH_FILL_STYLE
@@ -384,7 +449,10 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
                         mismatchTypesCellOut = wsOut.rows[getOutputCell(row[0], wsOut).row-1][mismatchTypesColIdx]
                         mismatchTypesCellOut.value = ",".join(mismatchTypes)
                         mismatchTypesCellOut.style = curMismatchFillStyle
-
+                    if bool_translation and sharedWords:
+                        translationMismatchFillStyle = LANG_MISMATCH_FILL_STYLE_NAME
+                        cellOut.style = translationMismatchFillStyle
+                    
                 if not block_tags_fixed_flag:
                     outputText = row[colIdx].value
                 # If there are any extra output values remove them
@@ -422,6 +490,9 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
                         if baseOutputValueList != curOutputValueList:
                             currFixedCell.style = MISMATCH_FILL_STYLE_NAME
 
+                if bool_translation and sharedWords:
+                    translationMismatchFillStyle = LANG_MISMATCH_FILL_STYLE_NAME
+                    cellOut.style = translationMismatchFillStyle
         except AttributeError as e:
             messages.append(str(e))
         except Exception as e:
@@ -570,7 +641,7 @@ def validate_workbook(file_obj, args=None):
 
             # Dictionaries mapping column index to column name
             defaultColumnDict = {}
-
+            
             maxHeaderIdx = 0
             # Find all columns of format "default_[CODE]"
             ws_rows = list(ws.rows)
@@ -603,7 +674,7 @@ def validate_workbook(file_obj, args=None):
                         for colIdx in defaultColumnDict.keys():
                             if defaultColumnDict[colIdx] == baseColumn:
                                 baseColumnIdx = colIdx
-
+                    
                     # Check row for mismatch and print results
                     rowCheckResults = checkRowForMismatch(
                         row, defaultColumnDict, fixedColumnDict, baseColumnIdx, ignoreOrder, wsOut, mismatchFlagIdx,
