@@ -347,9 +347,15 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
             if ignoreOrder:
                 curOutputValueList = sorted(curOutputValueList)
             curFormatDict = {}
-            if (colIdx != baseColumnIdx):    
+            sharedWords =[]
+            if (colIdx != baseColumnIdx):
                 curValueDict = convertCellToDict(row[colIdx])
                 sharedWords, bool_translation = linguisticCharChecker(baseValueDict, curValueDict)
+                if wsOut:
+                    cellOut = getOutputCell(row[colIdx], wsOut)
+                    if len(sharedWords) > 0 and bool_translation:
+                        curMismatchFillStyle = LANG_MISMATCH_FILL_STYLE_NAME
+                        cellOut.style = curMismatchFillStyle
 
             # Initialize block_tags_fixed_flag to False, if any fix is applied, set to True
             block_tags_fixed_flag = False
@@ -433,7 +439,7 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
 
                 if len(mismatchTypes) > 0:
                     mismatchDict[colIdx] = (curOutputValueList, mismatchTypes)
-              
+
                 if wsOut:
                     cellOut = getOutputCell(row[colIdx], wsOut)
                     # If output value mismatch is present, style the cell with MISMATCH_FILL_STYLE
@@ -449,10 +455,7 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
                         mismatchTypesCellOut = wsOut.rows[getOutputCell(row[0], wsOut).row-1][mismatchTypesColIdx]
                         mismatchTypesCellOut.value = ",".join(mismatchTypes)
                         mismatchTypesCellOut.style = curMismatchFillStyle
-                    if bool_translation and sharedWords:
-                        translationMismatchFillStyle = LANG_MISMATCH_FILL_STYLE_NAME
-                        cellOut.style = translationMismatchFillStyle
-                    
+
                 if not block_tags_fixed_flag:
                     outputText = row[colIdx].value
                 # If there are any extra output values remove them
@@ -490,9 +493,6 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
                         if baseOutputValueList != curOutputValueList:
                             currFixedCell.style = MISMATCH_FILL_STYLE_NAME
 
-                if bool_translation and sharedWords:
-                    translationMismatchFillStyle = LANG_MISMATCH_FILL_STYLE_NAME
-                    cellOut.style = translationMismatchFillStyle
         except AttributeError as e:
             messages.append(str(e))
         except Exception as e:
@@ -502,6 +502,11 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
                              (row[colIdx].parent.title, row[colIdx].coordinate, str(e)))
 
     mismatchCell = wsOut.cell(row=getOutputCell(row[0], wsOut).row, column=1).offset(column=mismatchFlagIdx)
+    if len(sharedWords) > 0:
+        if bool_translation:
+            curMismatchFillStyle = LANG_MISMATCH_FILL_STYLE_NAME
+            mismatchCell.value = "Y"
+            mismatchCell.style = curMismatchFillStyle
     if len(mismatchDict) > 0:
         curMismatchFillStyle = LESSER_MISMATCH_FILL_STYLE_NAME
         for key in mismatchDict:
@@ -510,7 +515,8 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
         mismatchCell.value = "Y"
         mismatchCell.style = curMismatchFillStyle
     else:
-        mismatchCell.value = "N"
+        if(mismatchCell.value!="Y"):
+            mismatchCell.value = "N"
 
     return baseColumnDict, mismatchDict
 
@@ -641,7 +647,7 @@ def validate_workbook(file_obj, args=None):
 
             # Dictionaries mapping column index to column name
             defaultColumnDict = {}
-            
+
             maxHeaderIdx = 0
             # Find all columns of format "default_[CODE]"
             ws_rows = list(ws.rows)
@@ -674,7 +680,7 @@ def validate_workbook(file_obj, args=None):
                         for colIdx in defaultColumnDict.keys():
                             if defaultColumnDict[colIdx] == baseColumn:
                                 baseColumnIdx = colIdx
-                    
+
                     # Check row for mismatch and print results
                     rowCheckResults = checkRowForMismatch(
                         row, defaultColumnDict, fixedColumnDict, baseColumnIdx, ignoreOrder, wsOut, mismatchFlagIdx,
