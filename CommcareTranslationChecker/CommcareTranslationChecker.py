@@ -156,12 +156,12 @@ def convertCellToDict(cell):
     cell (xl.cell.cell.Cell): Cell whose contents are to be parsed
 
     Output:
-    Dict with strings as key and occurence as value
+    Dict with strings as key and value as 1. All keys are unique in the dict.
 
    """
     outputDict = {}
     x = cell.value
-    if'jr://file/' in x:
+    if 'jr://file/' in x:
         return outputDict
 
     try:
@@ -510,7 +510,7 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
         mismatchCell.value = "Y"
         mismatchCell.style = curMismatchFillStyle
     else:
-        if(mismatchCell.value!="Y"):
+        if mismatchCell.value!="Y":
             mismatchCell.value = "N"
 
     return baseColumnDict, mismatchDict
