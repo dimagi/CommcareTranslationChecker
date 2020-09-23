@@ -172,7 +172,7 @@ def convertCellToDict(cell):
                          (cell.parent.title, cell.coordinate, str(e)))
     
     for i in x.split():
-        i = re.sub(r'[\W\_]','',i)
+        i = re.sub(r'[\W\_]', '', i)
         if not outputDict.get(i) and (i and i.strip()) and not (re.match(r'^[0-9]*$', i)):
             outputDict[i] = 1
 
@@ -191,7 +191,7 @@ def linguisticCharChecker(baseDict, colDict):
         if i in sharedWords:
             continue
         else:
-            if re.match(r"^[A-Za-z0-9]*$",i):
+            if re.match(r"^[A-Za-z0-9]*$", i):
                 return sharedWords, False
             else:
                 return sharedWords, True
@@ -510,7 +510,7 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
         mismatchCell.value = "Y"
         mismatchCell.style = curMismatchFillStyle
     else:
-        if mismatchCell.value!="Y":
+        if mismatchCell.value != "Y":
             mismatchCell.value = "N"
 
     return baseColumnDict, mismatchDict
