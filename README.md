@@ -60,7 +60,6 @@ $ CommcareTranslationChecker    --columns <comma-separated list of column names 
                                 --output-folder <relative or absolute path to folder in which to save output file> \
                                 --ignore-order \
                                 --verbose \
-                                --no-output-file \
                                 --configuration-sheet <name of sheet containing meta information about other sheets in the workbook> \
                                 --configuration-sheet-column <name of column in configuration-sheet containing expected sheet titles> \
                                 --output-mismatch-types \
