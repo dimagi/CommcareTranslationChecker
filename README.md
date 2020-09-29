@@ -23,7 +23,7 @@ Basic Command-line Usage
 The basic usage of the command-line tool is with a saved Excel file. This can either be configured for [Form Translation](https://confluence.dimagi.com/display/commcarepublic/Form+Bulk+Translation) or [Application Translation](https://confluence.dimagi.com/display/commcarepublic/Bulk+Application+Translations)
 
 ```
-$ CommcareTranslationChecker  <relative or absolute path to translation file>
+$ CommcareTranslationChecker  <relative or absolute path to translation file> --output-file
 ```
 
 By default, this will read the specified file, and check all columns whose names start with "default_" against the left-most "default_" column. If any discrepancies are found between the list of "output value" tags in any of the columns, a file will be generated in the folder "commcareTranslationChecker_output." If no such folder exists relative to the current path, it will be created. This file will be an exact copy of the data in the input file, with an additional column "mismatchFlag" appended to each sheet. This column will be flagged "Y" in all rows for which a disprepancy was detected, and "N" otherwise. In addition, all cells whose "output value" tags differ from the left-most column's will be red-filled, for easy visual reference.
