@@ -19,10 +19,12 @@ from .utils import (BLOCK_FORMATTING_TAGS, INLINE_FORMATTING_TAGS,
 NON_LINGUISTIC_CHARACTERS = "~`!@#$%^&*()_-+={[}]|\\:;\"'<,>.?/"
 MISMATCH_FILL_STYLE_NAME = "mismatchFillStyle"
 LESSER_MISMATCH_FILL_STYLE_NAME = "lesserMismatchFillStyle"
+LANG_MISMATCH_FILL_STYLE_NAME = "langMismatchFillStyle"
 
 # DEFINE COLORS
 RED = '00FF0000'
 YELLOW = '00FFFF00'
+BLUE = '0066A3FF'
 
 
 # DEFINE METHODS #
@@ -95,10 +97,16 @@ def register_styles(wb):
         name=LESSER_MISMATCH_FILL_STYLE_NAME,
         fill=xl.styles.PatternFill(fgColor=xl.styles.colors.Color(YELLOW), fill_type="solid"),
         alignment=xl.styles.Alignment(wrap_text=True))
+    langMismatchFillStyle = xl.styles.NamedStyle(
+        name=LANG_MISMATCH_FILL_STYLE_NAME,
+        fill=xl.styles.PatternFill(fgColor=xl.styles.colors.Color(BLUE), fill_type="solid"),
+        alignment=xl.styles.Alignment(wrap_text=True))
     if MISMATCH_FILL_STYLE_NAME not in wb.named_styles:
         wb.add_named_style(mismatchFillStyle)
     if LESSER_MISMATCH_FILL_STYLE_NAME not in wb.named_styles:
         wb.add_named_style(lesserMismatchFillStyle)
+    if LANG_MISMATCH_FILL_STYLE_NAME not in wb.named_styles:
+        wb.add_named_style(langMismatchFillStyle)
 
 
 def convertCellToOutputValueList(cell):
@@ -138,6 +146,82 @@ def convertCellToOutputValueList(cell):
                          (cell.parent.title, cell.coordinate, str(e)))
 
     return outputList, messages
+
+
+def get_unique_words(cell):
+    """
+    Remove output tags and return unique words. If 'jr://file/' is found in cell return empty list
+    
+    Input:
+    cell (xl.cell.cell.Cell): Cell from which unique words needs to be computed
+
+    Returns:
+    List of unique words present in the cell
+    """
+    text = str(cell.value)
+    openTag = "<output value=\""
+    closeTag = "\"/>"
+    if 'jr://file/' in cell.value:
+        return []
+    output_list, messages = convertCellToOutputValueList(cell)
+    for output_value in output_list:
+        if 'ILL-FORMATTED TAG :' in output_value:
+            return []
+        text = text.replace(f'{openTag}{output_value}{closeTag}', '')
+    words = list(set(re.findall(r'\w+', text)))
+    return words
+
+
+def is_english_word(word):
+    """
+    Checks whether a word contains only english alphabet or not
+    """
+    if len(re.findall('[a-zA-z0-9]', word)) == len(word):
+        return True
+    else:
+        return False
+
+
+def english_translation_mismatch(source_cell, current_cell):
+    """
+    If there are shared english words between source cell and current cell,
+    and if other words in current cell are not in english, return mismatch as true
+    
+    Input:
+    source_cell (xl.cell.cell.Cell): Source cell which contains text of base language
+    target_cell (xl.cell.cell.Cell): Current cell which contains text of translated language
+
+    Returns:
+    shared_english_words(list): list of shared english words between two cells
+    mismatch(boolean): True indicates mismatch, False indicates no mismatch
+    """
+    source_cell_words = get_unique_words(source_cell)
+    current_cell_words = get_unique_words(current_cell)
+    shared_words = set(source_cell_words).intersection(set(current_cell_words))
+    if len(shared_words) > 0:
+        shared_english_words = []
+        for word in shared_words:
+            if is_english_word(word):
+                shared_english_words.append(word)
+        non_shared_words = set(current_cell_words).difference(set(shared_english_words))
+        for word in non_shared_words:
+            if is_english_word(word):
+                continue
+            else:
+                return shared_english_words, True
+        return shared_english_words, False
+    else:
+        has_english_words = False
+        has_non_english_words = False
+        for word in current_cell_words:
+            if is_english_word(word):
+                has_english_words = True
+            else:
+                has_non_english_words = True
+        if has_english_words and has_non_english_words:
+            return [], True
+        else:
+            return [], False
 
 
 def createOutputCell(cell, wsOut):
@@ -307,9 +391,10 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
             # Join invalid inline format tags and invalid block tag mismatches
             invalid_format_tags = invalid_inline_format_tags.extend(invalid_block_format_tags)
 
+            shared_words, translation_mismatch = english_translation_mismatch(row[baseColumnIdx], row[colIdx])
             if (colIdx != baseColumnIdx and
                     (baseOutputValueList != curOutputValueList or baseFormatDict != curFormatDict or
-                     invalid_format_tags)):
+                     invalid_format_tags or translation_mismatch)):
                 # Determine how everything is mismatched
                 mismatchTypes = []
 
@@ -366,6 +451,9 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
                     for invalid_format_tag in invalid_format_tags:
                         mismatchTypes.append("Text Formatting Mismatch - %s" % invalid_format_tag)
 
+                if translation_mismatch:
+                    mismatchTypes.append("Translation mismatch - %s" % ', '.join(shared_words))
+
                 if len(mismatchTypes) > 0:
                     mismatchDict[colIdx] = (curOutputValueList, mismatchTypes)
 
@@ -374,10 +462,23 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
                     # If output value mismatch is present, style the cell with MISMATCH_FILL_STYLE
                     # If Text Formatting mismatch is present, style the cell with LESSER_MISMATCH_FILL_STYLE
                     if len(mismatchTypes) > 0:
-                        curMismatchFillStyle = LESSER_MISMATCH_FILL_STYLE_NAME
+                        curMismatchFillStyle = None
+                        mismatch_present = False
+                        lesser_mismatch_present = False
+                        lang_mismatch_present = False
                         for mismatch in mismatchTypes:
-                            if "Text Formatting Mismatch" not in mismatch:
-                                curMismatchFillStyle = MISMATCH_FILL_STYLE_NAME
+                            if "Text Formatting Mismatch" in mismatch:
+                                lesser_mismatch_present = True
+                            elif "Translation mismatch" in mismatch:
+                                lang_mismatch_present = True
+                            else:
+                                mismatch_present = True
+                        if mismatch_present:
+                            curMismatchFillStyle = MISMATCH_FILL_STYLE_NAME
+                        elif lang_mismatch_present:
+                            curMismatchFillStyle = LANG_MISMATCH_FILL_STYLE_NAME
+                        else:
+                            curMismatchFillStyle = LESSER_MISMATCH_FILL_STYLE_NAME
                         cellOut.style = curMismatchFillStyle
                     if outputMismatchTypesFlag:
                         mismatchTypesColIdx = appendColumnIfNotExist(wsOut, "mismatch_%s"%(columnDict[colIdx],))
@@ -432,10 +533,23 @@ def checkRowForMismatch(row, columnDict, fixedColumnDict, baseColumnIdx=None, ig
 
     mismatchCell = wsOut.cell(row=getOutputCell(row[0], wsOut).row, column=1).offset(column=mismatchFlagIdx)
     if len(mismatchDict) > 0:
-        curMismatchFillStyle = LESSER_MISMATCH_FILL_STYLE_NAME
+        curMismatchFillStyle = None
+        mismatch_present = False
+        lesser_mismatch_present = False
         for key in mismatchDict:
-            if len(mismatchDict[key][1]) > 0 and "Text Formatting Mismatch" not in mismatchDict[key][1][0]:
-                curMismatchFillStyle = MISMATCH_FILL_STYLE_NAME
+            for mismatch in mismatchDict[key][1]:
+                if "Text Formatting Mismatch" in mismatch:
+                    lesser_mismatch_present = True
+                elif "Translation mismatch" in mismatch:
+                    lang_mismatch_present = True
+                else:
+                    mismatch_present = True
+        if mismatch_present:
+            curMismatchFillStyle = MISMATCH_FILL_STYLE_NAME
+        elif lang_mismatch_present:
+            curMismatchFillStyle = LANG_MISMATCH_FILL_STYLE_NAME
+        else:
+            curMismatchFillStyle = LESSER_MISMATCH_FILL_STYLE_NAME
         mismatchCell.value = "Y"
         mismatchCell.style = curMismatchFillStyle
     else:
@@ -676,7 +790,7 @@ def main(argv):
             tb.print_exc(e)
         exit(-1)
     except FatalError as e:
-        print("The process could not be completed. %s" % e.message)
+        print("The process could not be completed. %s" % str(e))
     for message in messages:
         print(message)
 
